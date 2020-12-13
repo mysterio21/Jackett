@@ -26,7 +26,7 @@ caps:
     - {id: 75, cat: Other, desc: "Képek"}
     - {id: 107, cat: Books, desc: "eBook/Eng"}
     - {id: 61, cat: Books, desc: "eBook/Hun"}
-    - {id: 106, cat: PC/Phone-Other, desc: "Mobil"}
+    - {id: 106, cat: PC/Mobile-Other, desc: "Mobil"}
     - {id: 50, cat: Audio/MP3, desc: "Mp3/Eng"}
     - {id: 49, cat: Audio/MP3, desc: "Mp3/Hun"}
     - {id: 45, cat: PC, desc: "Program ISO /RIP"}
@@ -42,6 +42,7 @@ caps:
     tv-search: [q, season, ep]
     movie-search: [q]
     music-search: [q]
+    book-search: [q]
 
 settings:
   - name: username
@@ -57,19 +58,19 @@ settings:
   - name: sort
     type: select
     label: Sort requested from site
-    default: "4"
+    default: 4
     options:
-      "4": "created"
-      "7": "seeders"
-      "5": "size"
-      "1": "title"
+      4: created
+      7: seeders
+      5: size
+      1: title
   - name: type
     type: select
     label: Order requested from site
-    default: "2"
+    default: 2
     options:
-      "2": "desc"
-      "1": "asc"
+      2: desc
+      1: asc
   - name: info
     type: info
     label: Results Per Page
@@ -129,11 +130,9 @@ search:
       attribute: href
     imdb:
       selector: a[href*="imdb.com/title/tt"]
-      optional: true
       attribute: href
-    banner:
+    poster:
       selector: a[onmouseover]
-      optional: true
       attribute: onmouseover
       filters:
         - name: regexp
@@ -147,8 +146,10 @@ search:
           args: (\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})
         - name: replace
           args: ["\xA0", " "]
+        - name: append
+          args: " +01:00" # CET
         - name: dateparse
-          args: "2006-01-02 15:04:05"
+          args: "2006-01-02 15:04:05 -07:00"
     size:
       selector: td:nth-last-child(5) > u
     grabs:

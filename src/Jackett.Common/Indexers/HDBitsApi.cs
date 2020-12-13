@@ -25,19 +25,28 @@ namespace Jackett.Common.Indexers
             set => base.configData = value;
         }
 
-        public HDBitsApi(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps)
+        public HDBitsApi(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "hdbitsapi",
                    name: "HDBits (API)",
                    description: "The HighDefinition Bittorrent Community",
                    link: "https://hdbits.org/",
                    caps: new TorznabCapabilities
                    {
-                       SupportsImdbMovieSearch = true
+                       TvSearchParams = new List<TvSearchParam>
+                       {
+                           TvSearchParam.Q, TvSearchParam.Season, TvSearchParam.Ep, TvSearchParam.TvdbId
+                       },
+                       MovieSearchParams = new List<MovieSearchParam>
+                       {
+                           MovieSearchParam.Q, MovieSearchParam.ImdbId
+                       }
                    },
                    configService: configService,
                    client: wc,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationDataHDBitsApi())
         {
             Encoding = Encoding.UTF8;
@@ -83,14 +92,25 @@ namespace Jackett.Common.Indexers
             var imdbId = ParseUtil.GetImdbID(query.ImdbID);
 
             if (imdbId != null)
+                requestData["imdb"] = new JObject
+                {
+                    ["id"] = imdbId
+                };
+            else if (query.TvdbID != null)
             {
-                requestData["imdb"] = new JObject();
-                requestData["imdb"]["id"] = imdbId;
+                requestData["tvdb"] = new JObject
+                {
+                    ["id"] = query.TvdbID
+                };
+
+                if (query.Season != 0)
+                    requestData["tvdb"]["season"] = query.Season;
+
+                if (!string.IsNullOrEmpty(query.Episode))
+                    requestData["tvdb"]["episode"] = query.Episode;
             }
             else if (!string.IsNullOrWhiteSpace(queryString))
-            {
                 requestData["search"] = queryString;
-            }
 
             var categories = MapTorznabCapsToTrackers(query);
 
@@ -117,11 +137,11 @@ namespace Jackett.Common.Indexers
                     configData.Passkey.Value);
                 var seeders = (int)r["seeders"];
                 var publishDate = DateTimeUtil.UnixTimestampToDateTime((int)r["utadded"]);
-                var comments = new Uri(SiteLink + "details.php?id=" + (string)r["id"]);
+                var details = new Uri(SiteLink + "details.php?id=" + (string)r["id"]);
                 var release = new ReleaseInfo
                 {
                     Title = (string)r["name"],
-                    Comments = comments,
+                    Details = details,
                     Link = link,
                     Category = MapTrackerCatToNewznab((string)r["type_category"]),
                     Size = (long)r["size"],
@@ -136,14 +156,10 @@ namespace Jackett.Common.Indexers
                 };
 
                 if (r.ContainsKey("imdb"))
-                {
                     release.Imdb = ParseUtil.GetImdbID((string)r["imdb"]["id"]);
-                }
 
                 if (r.ContainsKey("tvdb"))
-                {
                     release.TVDBId = (long)r["tvdb"]["id"];
-                }
 
                 releases.Add(release);
             }
@@ -175,7 +191,7 @@ namespace Jackett.Common.Indexers
         {
             requestData["username"] = configData.Username.Value;
             requestData["passkey"] = configData.Passkey.Value;
-            JObject json = null;
+
             var response = await RequestWithCookiesAndRetryAsync(
                 APIUrl + url, null, RequestType.POST, null, null,
                 new Dictionary<string, string>
@@ -185,6 +201,7 @@ namespace Jackett.Common.Indexers
                 }, requestData.ToString(), false);
             CheckSiteDown(response);
 
+            JObject json;
             try
             {
                 json = JObject.Parse(response.ContentString);
@@ -195,9 +212,7 @@ namespace Jackett.Common.Indexers
             }
 
             if ((int)json["status"] != 0)
-            {
                 throw new Exception("HDBits returned an error with status code " + (int)json["status"] + ": " + (string)json["message"]);
-            }
 
             return json;
         }

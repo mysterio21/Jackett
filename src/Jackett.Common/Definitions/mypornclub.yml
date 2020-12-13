@@ -7,8 +7,6 @@ type: public
 encoding: UTF-8
 links:
   - https://myporn.club/
-certificates:
-  - da470bec581812000ee09a68fd62dff7a3f50127 # expired 05 aug 20
 
 caps:
   categorymappings:
@@ -30,7 +28,7 @@ download:
 
 search:
   paths:
-    - path: "{{ if .Keywords }}search/{{ re_replace .Keywords \"\\s+\" \"-\" }}{{else}}torrents{{end}}"
+    - path: "{{ if .Keywords }}search/{{ re_replace .Keywords \"\\s+\" \"-\" }}{{ else }}torrents{{ end }}"
 
   rows:
     selector: div.torrents_list > div.torrent_element

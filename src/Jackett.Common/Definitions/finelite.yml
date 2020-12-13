@@ -22,30 +22,30 @@ settings:
   - name: sort
     type: select
     label: Sort requested from site
-    default: "4"
+    default: 4
     options:
-      "4": "created"
-      "7": "seeders"
-      "5": "size"
-      "1": "title"
+      4: created
+      7: seeders
+      5: size
+      1: title
   - name: type
     type: select
     label: Order requested from site
-    default: "desc"
+    default: desc
     options:
-      "desc": "desc"
-      "asc": "asc"
+      desc: desc
+      asc: asc
 
 caps:
   categorymappings:
     - {id: 8, cat: PC/0day, desc: "0day/Apps"}
     - {id: 29, cat: TV/Documentary, desc: "Documentary"}
-    - {id: 24, cat: Books/Ebook, desc: "Ebooks"}
+    - {id: 24, cat: Books/EBook, desc: "Ebooks"}
     - {id: 28, cat: Movies, desc: "FE-INT"}
     - {id: 10, cat: Console, desc: "Games - Console"}
     - {id: 11, cat: PC/Games, desc: "Games - PC"}
     - {id: 26, cat: Movies, desc: "Kids"}
-    - {id: 9, cat: PC/Phone-Other, desc: "Mobile"}
+    - {id: 9, cat: PC/Mobile-Other, desc: "Mobile"}
     - {id: 12, cat: Movies, desc: "Movie Pack"}
     - {id: 13, cat: Movies/DVD, desc: "Movies DVD-r"}
     - {id: 14, cat: Movies/HD, desc: "Movies HD"}
@@ -60,10 +60,11 @@ caps:
     - {id: 21, cat: XXX, desc: "XXX SD"}
 
   modes:
-    search: [q, imdbid]
+    search: [q]
     tv-search: [q, season, ep, imdbid]
     movie-search: [q, imdbid]
     music-search: [q]
+    book-search: [q]
 
 login:
   path: login.php
@@ -115,7 +116,6 @@ search:
       selector: a[href^="/lataa.php/"]
       attribute: href
     imdb:
-      optional: true
       selector: a[href*="imdb.com/title/tt"]
       attribute: href
     files:
@@ -126,8 +126,10 @@ search:
       filters:
         - name: re_replace
           args: [" (\\d{1}):(\\d{2})", " 0$1:$2"]
+        - name: append
+          args: " +02:00" # EET
         - name: dateparse
-          args: "2.01.2006 15:04"
+          args: "2.01.2006 15:04 -07:00"
     size:
       selector: td:nth-last-child(3)
     seeders:

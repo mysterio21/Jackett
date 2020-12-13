@@ -42,7 +42,7 @@ caps:
     - {id: 41, cat: Movies, desc: "ViP"}
     - {id: 42, cat: Movies/SD, desc: "XviD"}
     - {id: 43, cat: Movies/SD, desc: "XviD BoX"}
-    - {id: 55, cat: Movies/WEBDL, desc: "WEB-DL"}
+    - {id: 55, cat: Movies/WEB-DL, desc: "WEB-DL"}
     - {id: 7, cat: Audio, desc: "Müzik"}
     - {id: 20, cat: Audio, desc: "Türkçe MüziK"}
     - {id: 46, cat: Audio, desc: "Yab@ncı MüziK"}
@@ -61,6 +61,7 @@ caps:
     tv-search: [q, season, ep]
     movie-search: [q]
     music-search: [q]
+    book-search: [q]
 
 settings:
   - name: username
@@ -80,18 +81,18 @@ settings:
   - name: sort
     type: select
     label: Sort requested from site
-    default: "added"
+    default: added
     options:
-      "added": "created"
-      "seeders": "seeders"
-      "size": "size"
+      added: created
+      seeders: seeders
+      size: size
   - name: type
     type: select
     label: Order requested from site
-    default: "desc"
+    default: desc
     options:
-      "desc": "desc"
-      "asc": "asc"
+      desc: desc
+      asc: asc
 
 login:
   path: ?p=home&pid=1
@@ -159,8 +160,10 @@ search:
       filters:
         - name: regexp
           args: "Uploaded (.+?) by"
+        - name: append
+          args: " +00:00" # auto adjusted by site account profile
         - name: dateparse
-          args: "02-01-2006 15:04"
+          args: "02-01-2006 15:04 -07:00"
     date:
       optional: true
       # Uploaded Friday at 05:11 by
@@ -172,6 +175,8 @@ search:
           args: "Uploaded (.+?) by"
         - name: replace
           args: [" at ", " "]
+        - name: append
+          args: " +00:00" # auto adjusted by site account profile
     size:
       selector: a[rel="torrent_size"]
     seeders:
@@ -180,9 +185,8 @@ search:
       selector: a[rel="torrent_leechers"]
     grabs:
       selector: a[rel="times_completed"]
-    banner:
+    poster:
       selector: a[rel="fancybox"]
-      optional: true
       attribute: href
     downloadvolumefactor:
       case:

@@ -41,26 +41,42 @@ namespace Jackett.Common.Indexers
             "ebook"
         };
 
-        public NCore(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps) :
-            base(id: "ncore",
-                 name: "nCore",
-                 description: "A Hungarian private torrent site.",
-                 link: "https://ncore.cc/",
-                 caps: new TorznabCapabilities
-                 {
-                     SupportsImdbMovieSearch = true,
-                     // supported by the site but disabled due to #8107
-                     // SupportsImdbTVSearch = true
-                 },
-                 configService: configService,
-                 client: wc,
-                 logger: l,
-                 p: ps,
-                 configData: new ConfigurationDataNCore())
+        public NCore(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+            ICacheService cs)
+            : base(id: "ncore",
+                  name: "nCore",
+                  description: "A Hungarian private torrent site.",
+                  link: "https://ncore.cc/",
+                  caps: new TorznabCapabilities
+                  {
+                      TvSearchParams = new List<TvSearchParam>
+                      {
+                          TvSearchParam.Q, TvSearchParam.Season, TvSearchParam.Ep, TvSearchParam.ImdbId
+                      },
+                      MovieSearchParams = new List<MovieSearchParam>
+                      {
+                          MovieSearchParam.Q, MovieSearchParam.ImdbId
+                      },
+                      MusicSearchParams = new List<MusicSearchParam>
+                      {
+                          MusicSearchParam.Q
+                      },
+                      BookSearchParams = new List<BookSearchParam>
+                      {
+                          BookSearchParam.Q
+                      }
+                  },
+                  configService: configService,
+                  client: wc,
+                  logger: l,
+                  p: ps,
+                  cacheService: cs,
+                  configData: new ConfigurationDataNCore())
         {
             Encoding = Encoding.UTF8;
             Language = "hu-hu";
             Type = "private";
+
             AddCategoryMapping("xvid_hun", TorznabCatType.MoviesSD, "Film SD/HU");
             AddCategoryMapping("xvid", TorznabCatType.MoviesSD, "Film SD/EN");
             AddCategoryMapping("dvd_hun", TorznabCatType.MoviesDVD, "Film DVDR/HU");
@@ -82,14 +98,14 @@ namespace Jackett.Common.Indexers
             AddCategoryMapping("clip", TorznabCatType.AudioVideo, "Zene Klip");
             AddCategoryMapping("xxx_xvid", TorznabCatType.XXXXviD, "XXX SD");
             AddCategoryMapping("xxx_dvd", TorznabCatType.XXXDVD, "XXX DVDR");
-            AddCategoryMapping("xxx_imageset", TorznabCatType.XXXImageset, "XXX Imageset");
+            AddCategoryMapping("xxx_imageset", TorznabCatType.XXXImageSet, "XXX Imageset");
             AddCategoryMapping("xxx_hd", TorznabCatType.XXX, "XXX HD");
             AddCategoryMapping("game_iso", TorznabCatType.PCGames, "Játék PC/ISO");
             AddCategoryMapping("game_rip", TorznabCatType.PCGames, "Játék PC/RIP");
             AddCategoryMapping("console", TorznabCatType.Console, "Játék Konzol");
             AddCategoryMapping("iso", TorznabCatType.PCISO, "Program Prog/ISO");
             AddCategoryMapping("misc", TorznabCatType.PC0day, "Program Prog/RIP");
-            AddCategoryMapping("mobil", TorznabCatType.PCPhoneOther, "Program Prog/Mobil");
+            AddCategoryMapping("mobil", TorznabCatType.PCMobileOther, "Program Prog/Mobil");
             AddCategoryMapping("ebook_hun", TorznabCatType.Books, "Könyv eBook/HU");
             AddCategoryMapping("ebook", TorznabCatType.Books, "Könyv eBook/EN");
         }
@@ -235,10 +251,8 @@ namespace Jackett.Common.Indexers
                         var downloadId = ParseUtil.GetArgumentFromQueryString(torrentLink, "id");
 
                         //Build site links
-                        var baseLink = SiteLink + "torrents.php?action=details&id=" + downloadId;
+                        var details = new Uri(SiteLink + "torrents.php?action=details&id=" + downloadId);
                         var downloadLink = SiteLink + "torrents.php?action=download&id=" + downloadId;
-                        var commentsUri = new Uri(baseLink + "#comments");
-                        var guidUri = new Uri(baseLink);
                         var linkUri = new Uri(QueryHelpers.AddQueryString(downloadLink, "key", key));
 
                         var seeders = ParseUtil.CoerceInt(row.QuerySelector(".box_s2 a").TextContent);
@@ -269,8 +283,8 @@ namespace Jackett.Common.Indexers
                             DownloadVolumeFactor = 0,
                             UploadVolumeFactor = 1,
                             Link = linkUri,
-                            Comments = commentsUri,
-                            Guid = guidUri,
+                            Details = details,
+                            Guid = details,
                             Seeders = seeders,
                             Peers = leechers + seeders,
                             Imdb = imdbId,
@@ -278,12 +292,12 @@ namespace Jackett.Common.Indexers
                             Size = size,
                             Category = MapTrackerCatToNewznab(cat)
                         };
-                        var banner = row.QuerySelector("img.infobar_ico")?.GetAttribute("onmouseover");
-                        if (banner != null)
+                        var posterStr = row.QuerySelector("img.infobar_ico")?.GetAttribute("onmouseover");
+                        if (posterStr != null)
                         {
                             // static call to Regex.Match caches the pattern, so we aren't recompiling every loop.
-                            var bannerMatch = Regex.Match(banner, @"mutat\('(.*?)', '", RegexOptions.Compiled);
-                            release.BannerUrl = new Uri(bannerMatch.Groups[1].Value);
+                            var posterMatch = Regex.Match(posterStr, @"mutat\('(.*?)', '", RegexOptions.Compiled);
+                            release.Poster = new Uri(posterMatch.Groups[1].Value);
                         }
 
                         //TODO there is room for improvement here.

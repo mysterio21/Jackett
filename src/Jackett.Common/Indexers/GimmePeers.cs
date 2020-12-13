@@ -29,16 +29,36 @@ namespace Jackett.Common.Indexers
             set => base.configData = value;
         }
 
-        public GimmePeers(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps)
+        public GimmePeers(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "gimmepeers",
                    name: "GimmePeers",
                    description: "Formerly ILT",
                    link: "https://www.gimmepeers.com/",
-                   caps: new TorznabCapabilities(),
+                   caps: new TorznabCapabilities
+                   {
+                       TvSearchParams = new List<TvSearchParam>
+                       {
+                           TvSearchParam.Q, TvSearchParam.Season, TvSearchParam.Ep
+                       },
+                       MovieSearchParams = new List<MovieSearchParam>
+                       {
+                           MovieSearchParam.Q
+                       },
+                       MusicSearchParams = new List<MusicSearchParam>
+                       {
+                           MusicSearchParam.Q
+                       },
+                       BookSearchParams = new List<BookSearchParam>
+                       {
+                           BookSearchParam.Q
+                       }
+                   },
                    configService: configService,
                    client: wc,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationDataBasicLogin())
         {
             Encoding = Encoding.GetEncoding("iso-8859-1");
@@ -47,17 +67,17 @@ namespace Jackett.Common.Indexers
 
             AddCategoryMapping(1, TorznabCatType.TVAnime, "Anime");
             AddCategoryMapping(3, TorznabCatType.BooksOther, "Tutorials");
-            AddCategoryMapping(5, TorznabCatType.BooksEbook, "Ebooks");
+            AddCategoryMapping(5, TorznabCatType.BooksEBook, "Ebooks");
             AddCategoryMapping(29, TorznabCatType.AudioAudiobook, "Abooks");
             AddCategoryMapping(9, TorznabCatType.ConsoleNDS, "Game-NIN");
             AddCategoryMapping(10, TorznabCatType.PCGames, "Game-WIN");
             AddCategoryMapping(11, TorznabCatType.ConsolePS3, "Game-PS");
-            AddCategoryMapping(12, TorznabCatType.ConsoleXbox, "Game-XBOX");
+            AddCategoryMapping(12, TorznabCatType.ConsoleXBox, "Game-XBOX");
             AddCategoryMapping(7, TorznabCatType.Audio, "Music");
             AddCategoryMapping(2, TorznabCatType.PCMac, "App-MAC");
             AddCategoryMapping(4, TorznabCatType.PC0day, "App-WIN");
             AddCategoryMapping(27, TorznabCatType.PC, "App-LINUX");
-            AddCategoryMapping(6, TorznabCatType.PCPhoneOther, "Mobile");
+            AddCategoryMapping(6, TorznabCatType.PCMobileOther, "Mobile");
             AddCategoryMapping(8, TorznabCatType.Other, "Other");
 
             AddCategoryMapping(20, TorznabCatType.TVHD, "TV-HD");
@@ -146,7 +166,7 @@ namespace Jackett.Common.Indexers
 
                     var link = row.QuerySelector("td:nth-of-type(2) a:nth-of-type(1)");
                     release.Guid = new Uri(SiteLink + link.GetAttribute("href"));
-                    release.Comments = release.Guid;
+                    release.Details = release.Guid;
                     release.Title = link.TextContent.Trim();
                     release.Description = release.Title;
 

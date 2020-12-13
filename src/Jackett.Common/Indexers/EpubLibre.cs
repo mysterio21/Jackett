@@ -9,7 +9,6 @@ using AngleSharp.Html.Parser;
 using Jackett.Common.Models;
 using Jackett.Common.Models.IndexerConfig;
 using Jackett.Common.Services.Interfaces;
-using Jackett.Common.Utils.Clients;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using NLog;
@@ -26,7 +25,7 @@ namespace Jackett.Common.Indexers
         private const int MaxSearchPageLimit = 6; // 18 items per page * 6 pages = 108
         private readonly Dictionary<string, string> _apiHeaders = new Dictionary<string, string>
         {
-            {"X-Requested-With", "XMLHttpRequest"},
+            {"X-Requested-With", "XMLHttpRequest"}
         };
         private readonly Dictionary<string, string> _languages = new Dictionary<string, string>
         {
@@ -44,21 +43,41 @@ namespace Jackett.Common.Indexers
             {"12", "esperanto"}
         };
 
-        public EpubLibre(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps)
+        public override string[] AlternativeSiteLinks { get; protected set; } = {
+            "https://epublibre.org/",
+            "https://epublibre.unblockit.dev/"
+        };
+
+        public override string[] LegacySiteLinks { get; protected set; } = {
+            "https://epublibre.unblockit.lat/",
+            "https://epublibre.unblockit.app/"
+        };
+
+        public EpubLibre(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "epublibre",
                    name: "EpubLibre",
                    description: "Más libros, Más libres",
                    link: "https://epublibre.org/",
-                   caps: new TorznabCapabilities(TorznabCatType.BooksEbook),
+                   caps: new TorznabCapabilities
+                   {
+                       BookSearchParams = new List<BookSearchParam>
+                       {
+                           BookSearchParam.Q // TODO: add more book parameters
+                       }
+                   },
                    configService: configService,
                    client: wc,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationData())
         {
             Encoding = Encoding.UTF8;
             Language = "es-es";
             Type = "public";
+
+            AddCategoryMapping(1, TorznabCatType.BooksEBook);
         }
 
         public override async Task<IndexerConfigurationStatus> ApplyConfiguration(JToken configJson)
@@ -102,9 +121,9 @@ namespace Jackett.Common.Indexers
                         if (!CheckTitleMatchWords(query.GetQueryString(), title))
                             continue; // skip if it doesn't contain all words
 
-                        var banner = new Uri(row.QuerySelector("img[id=catalog]").GetAttribute("src"));
+                        var poster = new Uri(row.QuerySelector("img[id=catalog]").GetAttribute("src"));
                         var qLink = row.QuerySelector("a");
-                        var comments = new Uri(qLink.GetAttribute("href"));
+                        var details = new Uri(qLink.GetAttribute("href"));
 
                         var qTooltip = parser.ParseDocument(qLink.GetAttribute("data-content"));
                         // we get the language from the last class tag => class="pull-right sprite idioma_5"
@@ -118,18 +137,16 @@ namespace Jackett.Common.Indexers
                         var release = new ReleaseInfo
                         {
                             Title = title,
-                            Comments = comments,
-                            Link = comments,
-                            Guid = comments,
+                            Details = details,
+                            Link = details,
+                            Guid = details,
                             PublishDate = lastPublishDate,
-                            BannerUrl = banner,
+                            Poster = poster,
                             Description = description,
-                            Category = new List<int> { TorznabCatType.BooksEbook.ID },
+                            Category = new List<int> { TorznabCatType.BooksEBook.ID },
                             Size = 5242880, // 5 MB
                             Seeders = 1,
                             Peers = 2,
-                            MinimumRatio = 1,
-                            MinimumSeedTime = 172800, // 48 hours
                             DownloadVolumeFactor = 0,
                             UploadVolumeFactor = 1
                         };

@@ -31,16 +31,24 @@ namespace Jackett.Common.Indexers
             set => base.configData = value;
         }
 
-        public TorrenTech(IIndexerConfigurationService configService, Utils.Clients.WebClient wc, Logger l, IProtectionService ps)
+        public TorrenTech(IIndexerConfigurationService configService, Utils.Clients.WebClient wc, Logger l,
+            IProtectionService ps, ICacheService cs)
             : base(id: "torrentech",
                    name: "Torrentech",
                    description: "Torrentech (TTH) is a Private Torrent Tracker for ELECTRONIC MUSIC",
                    link: "https://www.torrentech.org/",
-                   caps: TorznabUtil.CreateDefaultTorznabTVCaps(),
+                   caps: new TorznabCapabilities
+                   {
+                       MusicSearchParams = new List<MusicSearchParam>
+                       {
+                           MusicSearchParam.Q
+                       }
+                   },
                    configService: configService,
                    client: wc,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationDataBasicLoginWithRSSAndDisplay())
         {
             Encoding = Encoding.UTF8;
@@ -133,14 +141,14 @@ namespace Jackett.Common.Indexers
 
                         var qDetailsLink = Row.QuerySelector("a[onmouseover][href*=\"index.php?showtopic=\"]");
                         release.Title = qDetailsLink.TextContent;
-                        release.Comments = new Uri(qDetailsLink.GetAttribute("href"));
-                        release.Link = release.Comments;
+                        release.Details = new Uri(qDetailsLink.GetAttribute("href"));
+                        release.Link = release.Details;
                         release.Guid = release.Link;
 
                         release.DownloadVolumeFactor = 1;
                         release.UploadVolumeFactor = 1;
 
-                        var id = QueryHelpers.ParseQuery(release.Comments.Query)["showtopic"].FirstOrDefault();
+                        var id = QueryHelpers.ParseQuery(release.Details.Query)["showtopic"].FirstOrDefault();
 
                         var desc = Row.QuerySelector("span.desc");
                         var forange = desc.QuerySelector("font.forange");

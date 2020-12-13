@@ -15,7 +15,6 @@ using Jackett.Common.Utils;
 using Jackett.Common.Utils.Clients;
 using Newtonsoft.Json.Linq;
 using NLog;
-using static Jackett.Common.Models.IndexerConfig.ConfigurationData;
 
 namespace Jackett.Common.Indexers
 {
@@ -28,7 +27,7 @@ namespace Jackett.Common.Indexers
         private Dictionary<string, string> CategoryMappings = new Dictionary<string, string>{
             { "cats_music", "Music" },
             { "cats_libblemixtapes", "Libble Mixtapes" },
-            { "cats_musicvideos", "Music Videos" },
+            { "cats_musicvideos", "Music Videos" }
         };
         class VolumeFactorTag
         {
@@ -47,7 +46,7 @@ namespace Jackett.Common.Indexers
                     DownloadVolumeFactor = 0,
                     UploadVolumeFactor = 1
                 }
-            },
+            }
         };
 
         private new ConfigurationDataBasicLogin configData
@@ -56,20 +55,24 @@ namespace Jackett.Common.Indexers
             set => base.configData = value;
         }
 
-        public Libble(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps)
+        public Libble(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "libble",
                    name: "Libble",
                    description: "Libble is a Private Torrent Tracker for MUSIC",
                    link: "https://libble.me/",
                    caps: new TorznabCapabilities
                    {
-                       TVSearchAvailable = false,
-                       SupportedMusicSearchParamsList = new List<string> { "q", "album", "artist", "label", "year" }
+                       MusicSearchParams = new List<MusicSearchParam>
+                       {
+                           MusicSearchParam.Q, MusicSearchParam.Album, MusicSearchParam.Artist, MusicSearchParam.Label, MusicSearchParam.Year
+                       }
                    },
                    configService: configService,
                    client: wc,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationDataBasicLogin())
         {
             Encoding = Encoding.UTF8;
@@ -170,7 +173,7 @@ namespace Jackett.Common.Indexers
                 var albumRows = dom.QuerySelectorAll("table#torrent_table > tbody > tr:has(strong > a[href*=\"torrents.php?id=\"])");
                 foreach (var row in albumRows)
                 {
-                    Regex releaseGroupRegex = new Regex(@"torrents\.php\?id=([0-9]+)");
+                    var releaseGroupRegex = new Regex(@"torrents\.php\?id=([0-9]+)");
 
                     var albumNameNode = row.QuerySelector("strong > a[href*=\"torrents.php?id=\"]");
                     var artistsNameNodes = row.QuerySelectorAll("strong > a[href*=\"artist.php?id=\"]");
@@ -181,7 +184,7 @@ namespace Jackett.Common.Indexers
                     var releaseArtist = "Various Artists";
                     if (artistsNameNodes.Count() > 0)
                     {
-                        List<string> aristNames = new List<string>();
+                        var aristNames = new List<string>();
                         foreach (var aristNode in artistsNameNodes)
                         {
                             aristNames.Add(aristNode.TextContent.Trim());
@@ -239,7 +242,7 @@ namespace Jackett.Common.Indexers
 
                             release.Link = new Uri(SiteLink + releaseDownloadDetails.GetAttribute("href"));
                             release.Guid = release.Link;
-                            release.Comments = new Uri(SiteLink + albumNameNode.GetAttribute("href"));
+                            release.Details = new Uri(SiteLink + albumNameNode.GetAttribute("href"));
 
                             // Aug 31 2020, 15:50
                             try
@@ -260,7 +263,7 @@ namespace Jackett.Common.Indexers
                             release.Seeders = ParseUtil.CoerceInt(releaseSeedsCountDetails.TextContent.Trim());
                             release.Peers = release.Seeders + ParseUtil.CoerceInt(releasePeersCountDetails.TextContent.Trim());
                             release.Size = ReleaseInfo.GetBytes(releaseSizeDetails.TextContent.Trim());
-                            release.BannerUrl = releaseThumbnailUri;
+                            release.Poster = releaseThumbnailUri;
                             release.Category = releaseNewznabCategory;
                             release.MinimumSeedTime = 259200; // 72 hours
 
@@ -268,11 +271,11 @@ namespace Jackett.Common.Indexers
                             release.DownloadVolumeFactor = 1;
                             release.UploadVolumeFactor = 1;
                             var releaseTags = releaseMediaType.Split('/').Select(tag => tag.Trim()).ToList();
-                            for (int i = releaseTags.Count - 1; i >= 0; i--)
+                            for (var i = releaseTags.Count - 1; i >= 0; i--)
                             {
-                                string releaseTag = releaseTags[i];
+                                var releaseTag = releaseTags[i];
                                 if (VolumeTagMappings.ContainsKey(releaseTag)) {
-                                    VolumeFactorTag volumeFactor = VolumeTagMappings[releaseTag];
+                                    var volumeFactor = VolumeTagMappings[releaseTag];
                                     release.DownloadVolumeFactor = volumeFactor.DownloadVolumeFactor;
                                     release.UploadVolumeFactor = volumeFactor.UploadVolumeFactor;
                                     releaseTags.RemoveAt(i);

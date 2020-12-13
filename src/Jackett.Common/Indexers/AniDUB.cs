@@ -27,16 +27,32 @@ namespace Jackett.Common.Indexers
         private static readonly Regex SeasonInfoRegex = new Regex(@"(?:(?:TV-)|(?:ТВ-))(\d+)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Lazy<Regex> StripRussianTitleRegex = new Lazy<Regex>(() => new Regex(@"^.*?\/\s*", RegexOptions.Compiled));
 
-        public AniDUB(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps)
+        public AniDUB(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "anidub",
                    name: "AniDUB",
                    description: "AniDUB Tracker is a semi-private russian tracker and release group for anime",
                    link: "https://tr.anidub.com/",
-                   caps: new TorznabCapabilities(),
+                   caps: new TorznabCapabilities
+                   {
+                       TvSearchParams = new List<TvSearchParam>
+                       {
+                           TvSearchParam.Q, TvSearchParam.Season, TvSearchParam.Ep
+                       },
+                       MusicSearchParams = new List<MusicSearchParam>
+                       {
+                           MusicSearchParam.Q
+                       },
+                       BookSearchParams = new List<BookSearchParam>
+                       {
+                           BookSearchParam.Q
+                       }
+                   },
                    configService: configService,
                    client: wc,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationDataAniDub())
         {
             Encoding = Encoding.UTF8;
@@ -79,7 +95,7 @@ namespace Jackett.Common.Indexers
                 { "/dorama/korea_dorama", "7" },
                 { "/dorama/china_dorama", "8" },
                 { "/dorama", "9" },
-                { "/anons_ongoing", "12" },
+                { "/anons_ongoing", "12" }
             };
 
         private static ICollection<string> DefaultSearchCategories => new[] { "0" };
@@ -205,7 +221,7 @@ namespace Jackett.Common.Indexers
                 var date = GetDateFromShowPage(url, content);
 
                 var baseTitle = GetBaseTitle(categories, content);
-                var bannerUrl = GetBannerUrl(url, content);
+                var poster = GetPoster(url, content);
 
                 foreach (var releaseNode in content.QuerySelectorAll(ReleasesSelector))
                 {
@@ -227,7 +243,7 @@ namespace Jackett.Common.Indexers
                     {
                         Title = BuildReleaseTitle(baseTitle, tabNode),
                         Guid = guid,
-                        Comments = uri,
+                        Details = uri,
                         Link = GetReleaseLink(tabNode),
                         PublishDate = date,
                         Category = categories,
@@ -238,7 +254,7 @@ namespace Jackett.Common.Indexers
                         Description = GetReleaseDescription(tabNode),
                         Seeders = seeders,
                         Peers = GetReleaseLeechers(tabNode) + seeders,
-                        BannerUrl = bannerUrl
+                        Poster = poster
                     };
 
                     releases.Add(release);
@@ -348,18 +364,15 @@ namespace Jackett.Common.Indexers
             }
         }
 
-        private Uri GetBannerUrl(string url, IElement content)
+        private Uri GetPoster(string url, IElement content)
         {
-            var bannerNode = content.QuerySelector(".poster_bg .poster img");
-            var bannerSrc = bannerNode.GetAttribute("src");
+            var posterNode = content.QuerySelector(".poster_bg .poster img");
+            var posterSrc = posterNode.GetAttribute("src");
 
-            if (Uri.TryCreate(bannerSrc, UriKind.Absolute, out var bannerUrl))
-            {
-                return bannerUrl;
-            }
+            if (Uri.TryCreate(posterSrc, UriKind.Absolute, out var poster))
+                return poster;
 
-            logger.Warn($"[AniDub] Banner URL couldn't be parsed on '{url}'. Banner node src: {bannerSrc}");
-
+            logger.Warn($"[AniDub] Poster URL couldn't be parsed on '{url}'. Poster node src: {posterSrc}");
             return null;
         }
 
@@ -559,7 +572,7 @@ namespace Jackett.Common.Indexers
                 { "full_search", "1" },
                 { "result_from", "1" },
                 { "story", NormalizeSearchQuery(query)},
-                { "titleonly", "0" },
+                { "titleonly", "3" },
                 { "searchuser", "" },
                 { "replyless", "0" },
                 { "replylimit", "0" },
@@ -567,7 +580,7 @@ namespace Jackett.Common.Indexers
                 { "beforeafter", "after" },
                 { "sortby", "" },
                 { "resorder", "desc" },
-                { "showposts", "1" },
+                { "showposts", "1" }
             };
 
             data.AddRange(PrepareCategoriesQuery(query));
@@ -604,8 +617,7 @@ namespace Jackett.Common.Indexers
                 searchQuery += $" TV-{query.Season}";
             }
 
-            // Search is normalized with '+' instead of spaces
-            return searchQuery.ToLowerInvariant().Replace(" ", "+");
+            return searchQuery.ToLowerInvariant();
         }
     }
 }

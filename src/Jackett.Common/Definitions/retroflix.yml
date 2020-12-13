@@ -20,10 +20,11 @@ caps:
     - {id: 408, cat: Audio, desc: "HQ Audio"}
 
   modes:
-    search: [q, imdbid]
+    search: [q]
     tv-search: [q, season, ep, imdbid]
     movie-search: [q, imdbid]
     music-search: [q]
+    book-search: [q]
 
 settings:
   - name: cookie
@@ -40,19 +41,19 @@ settings:
   - name: sort
     type: select
     label: Sort requested from site
-    default: "4"
+    default: 4
     options:
-      "4": "created"
-      "7": "seeders"
-      "5": "size"
-      "1": "title"
+      4: created
+      7: seeders
+      5: size
+      1: title
   - name: type
     type: select
     label: Order requested from site
-    default: "desc"
+    default: desc
     options:
-      "desc": "desc"
-      "asc": "asc"
+      desc: desc
+      asc: asc
   - name: info_tpp
     type: info
     label: Results Per Page
@@ -63,7 +64,7 @@ login:
   inputs:
     cookie: "{{ .Config.cookie }}"
   test:
-    path: torrents.php
+    path: torrents1.php
 
 search:
   # https://retroflix.club/torrents1.php?incldead=0&spstate=0&inclbookmarked=0&search=tt0055254&search_area=4&search_mode=0
@@ -121,15 +122,13 @@ search:
     download:
       selector: a[href^="download.php?id="]
       attribute: href
-    banner:
-      optional: true
+    poster:
       selector: tr[onmouseover]
       attribute: onmouseover
       filters:
         - name: regexp
-          args: "src=\\\\'(.+?)\\\\'"
+          args: "src=(.+?) "
     imdb:
-      optional: true
       selector: a[href*="imdb.com/title/tt"]
       attribute: href
     date:
@@ -139,7 +138,7 @@ search:
       optional: true
       filters:
         - name: append
-          args: " +00:00"
+          args: " +00:00" # auto adjusted by site account profile
         - name: dateparse
           args: "02-01-2006 15:04:05 -07:00"
     date:
@@ -148,7 +147,7 @@ search:
       optional: true
       filters:
         - name: append
-          args: " +00:00"
+          args: " +00:00" # auto adjusted by site account profile
         - name: dateparse
           args: "02-01-200615:04:05 -07:00"
     size:
@@ -173,4 +172,9 @@ search:
         img.pro_free2up: 2
         img.pro_2up: 2
         "*": 1
+    minimumratio:
+      text: 1.0
+    minimumseedtime:
+      # 3 days (as seconds = 3 x 24 x 60 x 60)
+      text: 259200
 # NexusPHP

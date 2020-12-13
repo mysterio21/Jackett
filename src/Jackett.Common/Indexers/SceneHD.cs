@@ -20,12 +20,13 @@ namespace Jackett.Common.Indexers
     public class SceneHD : BaseWebIndexer
     {
         private string SearchUrl => SiteLink + "browse.php?";
-        private string CommentsUrl => SiteLink + "details.php?";
+        private string DetailsUrl => SiteLink + "details.php?";
         private string DownloadUrl => SiteLink + "download.php?";
 
         private new ConfigurationDataPasskey configData => (ConfigurationDataPasskey)base.configData;
 
-        public SceneHD(IIndexerConfigurationService configService, WebClient c, Logger l, IProtectionService ps)
+        public SceneHD(IIndexerConfigurationService configService, WebClient c, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "scenehd",
                    name: "SceneHD",
                    description: "SceneHD is Private site for HD TV / MOVIES",
@@ -33,11 +34,23 @@ namespace Jackett.Common.Indexers
                    configService: configService,
                    caps: new TorznabCapabilities
                    {
-                       SupportsImdbMovieSearch = true
+                       TvSearchParams = new List<TvSearchParam>
+                       {
+                           TvSearchParam.Q, TvSearchParam.Season, TvSearchParam.Ep
+                       },
+                       MovieSearchParams = new List<MovieSearchParam>
+                       {
+                           MovieSearchParam.Q, MovieSearchParam.ImdbId
+                       },
+                       MusicSearchParams = new List<MusicSearchParam>
+                       {
+                           MusicSearchParam.Q
+                       }
                    },
                    client: c,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationDataPasskey("You can find the Passkey if you generate a RSS " +
                                                             "feed link. It's the last parameter in the URL."))
         {
@@ -106,7 +119,7 @@ namespace Jackett.Common.Indexers
                         continue;
 
                     var id = item.Value<long>("id");
-                    var comments = new Uri(CommentsUrl + "id=" + id);
+                    var details = new Uri(DetailsUrl + "id=" + id);
                     var link = new Uri(DownloadUrl + "id=" + id + "&passkey=" + passkey);
                     var publishDate = DateTime.ParseExact(item.Value<string>("added"), "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture);
                     var dlVolumeFactor = item.Value<int>("is_freeleech") == 1 ? 0 : 1;
@@ -115,8 +128,8 @@ namespace Jackett.Common.Indexers
                     {
                         Title = title,
                         Link = link,
-                        Comments = comments,
-                        Guid = comments,
+                        Details = details,
+                        Guid = details,
                         Category = MapTrackerCatToNewznab(item.Value<string>("category")),
                         PublishDate = publishDate,
                         Size = item.Value<long>("size"),

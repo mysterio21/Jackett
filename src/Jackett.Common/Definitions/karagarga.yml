@@ -15,9 +15,10 @@ caps:
     - {id: 3, cat: Books, desc: "Literature"}
 
   modes:
-    search: [q, imdbid]
+    search: [q]
     movie-search: [q, imdbid]
     music-search: [q]
+    book-search: [q]
 
 settings:
   - name: username
@@ -112,7 +113,6 @@ search:
     imdb:
       selector: a[href*="imdb.com/title/tt"]
       attribute: href
-      optional: true
     date:
       selector: td:nth-child(9)
       filters:

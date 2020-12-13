@@ -14,8 +14,6 @@ caps:
 
   modes:
     search: [q]
-    tv-search: [q]
-    movie-search: [q]
 
 settings: []
 
@@ -26,7 +24,8 @@ search:
     - path: "{{ if .Keywords }}search/{{ .Keywords }}{{ else }}browse/0/0/0/0{{ end }}"
 
   rows:
-    selector: tr.gai:has(a[href^="/torrent/"])
+    # filter out torrents with 0B for issue #9756
+    selector: tr.gai:has(a[href^="/torrent/"]):has(td:nth-of-type(3):contains("GB")), tr.gai:has(a[href^="/torrent/"]):has(td:nth-of-type(3):contains("MB"))
 
   fields:
     category:
@@ -69,8 +68,10 @@ search:
           args: ["Ноя", "Nov"]
         - name: replace
           args: ["Дек", "Dec"]
+        - name: append
+          args: " +03:00" # MSK
         - name: dateparse
-          args: "02 Jan 06"
+          args: "02 Jan 06 -07:00"
     size:
       selector: td:nth-of-type(3)
     seeders:

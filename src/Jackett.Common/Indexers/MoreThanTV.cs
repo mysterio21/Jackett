@@ -22,33 +22,48 @@ namespace Jackett.Common.Indexers
     [ExcludeFromCodeCoverage]
     public class MoreThanTV : BaseWebIndexer
     {
+        public override string[] LegacySiteLinks { get; protected set; } = {
+            "https://www.morethan.tv/"
+        };
+
         private string LoginUrl => SiteLink + "login.php";
         private string SearchUrl => SiteLink + "ajax.php?action=browse&searchstr=";
         private string DownloadUrl => SiteLink + "torrents.php?action=download&id=";
-        private string CommentsUrl => SiteLink + "torrents.php?torrentid=";
+        private string DetailsUrl => SiteLink + "torrents.php?torrentid=";
 
         private ConfigurationDataBasicLogin ConfigData => (ConfigurationDataBasicLogin)configData;
 
-        public MoreThanTV(IIndexerConfigurationService configService, Utils.Clients.WebClient c, Logger l, IProtectionService ps)
+        public MoreThanTV(IIndexerConfigurationService configService, WebClient c, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "morethantv",
                    name: "MoreThanTV",
                    description: "Private torrent tracker for TV / MOVIES, and the internal tracker for the release group DRACULA.",
-                   link: "https://www.morethan.tv/",
-                   caps: new TorznabCapabilities(
-                       TorznabCatType.Movies,
-                       TorznabCatType.TV,
-                       TorznabCatType.Other),
+                   link: "https://www.morethantv.me/",
+                   caps: new TorznabCapabilities
+                   {
+                       TvSearchParams = new List<TvSearchParam>
+                       {
+                           TvSearchParam.Q, TvSearchParam.Season, TvSearchParam.Ep
+                       },
+                       MovieSearchParams = new List<MovieSearchParam>
+                       {
+                           MovieSearchParam.Q, MovieSearchParam.ImdbId
+                       }
+                   },
                    configService: configService,
                    client: c,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationDataBasicLogin())
         {
             Encoding = Encoding.UTF8;
             Language = "en-us";
             Type = "private";
 
-            TorznabCaps.SupportsImdbMovieSearch = true;
+            AddCategoryMapping(1, TorznabCatType.Movies);
+            AddCategoryMapping(2, TorznabCatType.TV);
+            AddCategoryMapping(3, TorznabCatType.Other);
         }
 
         public override async Task<IndexerConfigurationStatus> ApplyConfiguration(JToken configJson)
@@ -258,8 +273,8 @@ namespace Jackett.Common.Indexers
             var files = ParseUtil.CoerceLong(qFiles.TextContent);
             var qPublishDate = row.QuerySelector(".time.tooltip").Attributes["title"].Value;
             var publishDate = DateTime.ParseExact(qPublishDate, "MMM dd yyyy, HH:mm", CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal).ToLocalTime();
-            var qBanner = row.QuerySelector("div.tp-banner img")?.GetAttribute("src");
-            var banner = (qBanner != null && !qBanner.Contains("/static/styles/")) ? new Uri(qBanner) : null;
+            var qPoster = row.QuerySelector("div.tp-banner img")?.GetAttribute("src");
+            var poster = (qPoster != null && !qPoster.Contains("/static/styles/")) ? new Uri(qPoster) : null;
             var description = row.QuerySelector("div.tags")?.TextContent.Trim();
 
             var torrentData = row.QuerySelectorAll(".number_column");
@@ -270,23 +285,24 @@ namespace Jackett.Common.Indexers
             var grabs = int.Parse(torrentData[1].TextContent, NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
             var seeders = int.Parse(torrentData[2].TextContent, NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
             var leechers = int.Parse(torrentData[3].TextContent, NumberStyles.AllowThousands, CultureInfo.InvariantCulture);
-            var comments = new Uri(CommentsUrl + torrentId);
+            var details = new Uri(DetailsUrl + torrentId);
             var link = new Uri(DownloadUrl + torrentId);
+
             return new ReleaseInfo
             {
                 Title = title,
                 Category = new List<int> { category }, // Who seasons movies right
                 Link = link,
                 PublishDate = publishDate,
-                BannerUrl = banner,
+                Poster = poster,
                 Description = description,
                 Seeders = seeders,
                 Peers = seeders + leechers,
                 Files = files,
                 Size = size,
                 Grabs = grabs,
-                Guid = comments,
-                Comments = comments,
+                Guid = details,
+                Details = details,
                 DownloadVolumeFactor = 0, // ratioless tracker
                 UploadVolumeFactor = 1
             };

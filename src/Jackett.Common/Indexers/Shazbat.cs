@@ -31,24 +31,33 @@ namespace Jackett.Common.Indexers
             set => base.configData = value;
         }
 
-        public Shazbat(IIndexerConfigurationService configService, WebClient c, Logger l, IProtectionService ps)
+        public Shazbat(IIndexerConfigurationService configService, WebClient c, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "shazbat",
                    name: "Shazbat",
                    description: "Modern indexer",
                    link: "https://www.shazbat.tv/",
-                   caps: new TorznabCapabilities(
-                       TorznabCatType.TV,
-                       TorznabCatType.TVHD,
-                       TorznabCatType.TVSD),
+                   caps: new TorznabCapabilities
+                   {
+                       TvSearchParams = new List<TvSearchParam>
+                       {
+                           TvSearchParam.Q, TvSearchParam.Season, TvSearchParam.Ep
+                       }
+                   },
                    configService: configService,
                    client: c,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationDataBasicLoginWithRSS())
         {
             Encoding = Encoding.UTF8;
             Language = "en-us";
             Type = "private";
+
+            AddCategoryMapping(1, TorznabCatType.TV);
+            AddCategoryMapping(2, TorznabCatType.TVSD);
+            AddCategoryMapping(3, TorznabCatType.TVHD);
         }
 
         public override async Task<IndexerConfigurationStatus> ApplyConfiguration(JToken configJson)
@@ -124,26 +133,25 @@ namespace Jackett.Common.Indexers
                         foreach (var child in titleRow.Children)
                             child.Remove();
                         release.Title = titleRow.TextContent.Trim();
-                        if ((query.ImdbID == null || !TorznabCaps.SupportsImdbMovieSearch) &&
+                        if ((query.ImdbID == null || !TorznabCaps.MovieSearchImdbAvailable) &&
                             !query.MatchQueryStringAND(release.Title))
                             continue;
-                        var bannerStyle = row.QuerySelector("div[style^=\"cursor: pointer; background-image:url\"]")
+                        var posterStyle = row.QuerySelector("div[style^=\"cursor: pointer; background-image:url\"]")
                                              ?.GetAttribute("style");
-                        if (!string.IsNullOrEmpty(bannerStyle))
+                        if (!string.IsNullOrEmpty(posterStyle))
                         {
-                            var bannerImg = Regex.Match(bannerStyle, @"url\('(.*?)'\);").Groups[1].Value;
-                            release.BannerUrl = new Uri(SiteLink + bannerImg);
+                            var posterStr = Regex.Match(posterStyle, @"url\('(.*?)'\);").Groups[1].Value;
+                            release.Poster = new Uri(SiteLink + posterStr);
                         }
 
                         var qLink = row.QuerySelector("td:nth-of-type(5) a");
                         release.Link = new Uri(SiteLink + qLink.GetAttribute("href"));
                         release.Guid = release.Link;
                         var qLinkComm = row.QuerySelector("td:nth-of-type(5) a.internal");
-                        release.Comments = new Uri(SiteLink + qLinkComm.GetAttribute("href"));
+                        release.Details = new Uri(SiteLink + qLinkComm.GetAttribute("href"));
                         var dateString = row.QuerySelector(".datetime")?.GetAttribute("data-timestamp");
                         if (dateString != null)
-                            release.PublishDate = DateTimeUtil
-                                                  .UnixTimestampToDateTime(ParseUtil.CoerceDouble(dateString)).ToLocalTime();
+                            release.PublishDate = DateTimeUtil.UnixTimestampToDateTime(ParseUtil.CoerceDouble(dateString));
                         var infoString = row.QuerySelector("td:nth-of-type(4)").TextContent;
                         release.Size = ParseUtil.CoerceLong(
                             Regex.Match(infoString, "\\((\\d+)\\)").Value.Replace("(", "").Replace(")", ""));

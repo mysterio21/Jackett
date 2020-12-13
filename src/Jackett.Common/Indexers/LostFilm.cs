@@ -22,8 +22,8 @@ namespace Jackett.Common.Indexers
     [ExcludeFromCodeCoverage]
     internal class LostFilm : BaseWebIndexer
     {
-        public override string[] LegacySiteLinks { get; protected set; } = new string[] {
-            "https://www.lostfilm.tv/",
+        public override string[] LegacySiteLinks { get; protected set; } = {
+            "https://www.lostfilm.tv/"
         };
 
         private static readonly Regex parsePlayEpisodeRegex = new Regex("PlayEpisode\\('(?<id>\\d{1,3})(?<season>\\d{3})(?<episode>\\d{3})'\\)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -93,21 +93,35 @@ namespace Jackett.Common.Indexers
             set => base.configData = value;
         }
 
-        public LostFilm(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps)
+        public LostFilm(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "lostfilm",
                    name: "LostFilm.tv",
                    description: "Unique portal about foreign series",
                    link: "https://www.lostfilm.run/",
-                   caps: TorznabUtil.CreateDefaultTorznabTVCaps(),
+                   caps: new TorznabCapabilities {
+                       TvSearchParams = new List<TvSearchParam>
+                       {
+                           TvSearchParam.Q, TvSearchParam.Season, TvSearchParam.Ep
+                       },
+                       MovieSearchParams = new List<MovieSearchParam>
+                       {
+                           MovieSearchParam.Q
+                       }
+                   },
                    configService: configService,
                    client: wc,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationDataCaptchaLogin())
         {
             Encoding = Encoding.UTF8;
             Language = "ru-ru";
             Type = "semi-private";
+
+            // TODO: review if there is only this category (movie search is enabled)
+            AddCategoryMapping(1, TorznabCatType.TV);
         }
 
         public override async Task<ConfigurationData> GetConfigurationForSetup()
@@ -433,7 +447,7 @@ namespace Jackett.Common.Indexers
                 var playButton = document.QuerySelector("div.external-btn");
                 if (playButton != null && !playButton.ClassList.Contains("inactive"))
                 {
-                    var comments = new Uri(url);
+                    var details = new Uri(url);
 
                     var dateString = document.QuerySelector("div.title-block > div.details-pane > div.left-box").TextContent;
                     dateString = TrimString(dateString, "eng: ", " г."); // '... Дата выхода eng: 09 марта 2012 г. ...' -> '09 марта 2012'
@@ -452,7 +466,7 @@ namespace Jackett.Common.Indexers
 
                     foreach (var release in episodeReleases)
                     {
-                        release.Comments = comments;
+                        release.Details = details;
                         release.PublishDate = date;
                     }
                     releases.AddRange(episodeReleases);
@@ -514,14 +528,14 @@ namespace Jackett.Common.Indexers
                         var dateColumn = lastEpisode.QuerySelector("td.delta");
                         var date = DateFromEpisodeColumn(dateColumn);
 
-                        var comments = new Uri(url); // Current season(-s) page url
+                        var details = new Uri(url); // Current season(-s) page url
 
                         var urlDetails = new TrackerUrlDetails(seasonButton);
                         var seasonReleases = await FetchTrackerReleases(urlDetails);
 
                         foreach (var release in seasonReleases)
                         {
-                            release.Comments = comments;
+                            release.Details = details;
                             release.PublishDate = date;
                         }
 
@@ -558,6 +572,8 @@ namespace Jackett.Common.Indexers
                             }
 
                             var playButton = row.QuerySelector("td.zeta > div.external-btn");
+                            if (playButton == null) // #9725
+                                continue;
 
                             if (!string.IsNullOrEmpty(query.Episode))
                             {
@@ -578,14 +594,14 @@ namespace Jackett.Common.Indexers
                             var link = dateColumn.GetAttribute("onclick"); // goTo('/series/Prison_Break/season_5/episode_9/',false)
                             link = TrimString(link, '\'', '\'');
                             var episodeUrl = SiteLink + link.TrimStart('/');
-                            var comments = new Uri(episodeUrl);
+                            var details = new Uri(episodeUrl);
 
                             var urlDetails = new TrackerUrlDetails(playButton);
                             var episodeReleases = await FetchTrackerReleases(urlDetails);
 
                             foreach (var release in episodeReleases)
                             {
-                                release.Comments = comments;
+                                release.Details = details;
                                 release.PublishDate = date;
                             }
                             releases.AddRange(episodeReleases);
@@ -716,7 +732,7 @@ namespace Jackett.Common.Indexers
 
                         // Ru title: downloadLink.TextContent.Replace("\n", "");
                         // En title should be manually constructed.
-                        var titleComponents = new string[] {
+                        var titleComponents = new[] {
                             serieTitle, details.GetEpisodeString(), episodeName, techInfo
                         };
                         var downloadLink = row.QuerySelector("div.inner-box--link > a");

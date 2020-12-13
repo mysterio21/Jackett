@@ -30,15 +30,16 @@ caps:
     - {id: 616, cat: PC, desc: "Appz"}
     - {id: 617, cat: PC/Games, desc: "PC Games"}
     - {id: 618, cat: Console/PS4, desc: "Playstation"}
-    - {id: 619, cat: Console/Xbox, desc: "Xbox"}
+    - {id: 619, cat: Console/XBox, desc: "Xbox"}
     - {id: 620, cat: Console/Wii, desc: "Wii"}
     - {id: 621, cat: Other, desc: "Others"}
 
   modes:
-    search: [q, imdbid]
+    search: [q]
     tv-search: [q, season, ep, imdbid]
     movie-search: [q, imdbid]
     music-search: [q]
+    book-search: [q]
 
 settings:
   - name: cookie
@@ -59,19 +60,19 @@ settings:
   - name: sort
     type: select
     label: Sort requested from site
-    default: "4"
+    default: 4
     options:
-      "4": "created"
-      "7": "seeders"
-      "5": "size"
-      "1": "title"
+      4: created
+      7: seeders
+      5: size
+      1: title
   - name: type
     type: select
     label: Order requested from site
-    default: "desc"
+    default: desc
     options:
-      "desc": "desc"
-      "asc": "asc"
+      desc: desc
+      asc: asc
   - name: info_tpp
     type: info
     label: Results Per Page
@@ -106,18 +107,18 @@ search:
     selector: table.torrents > tbody > tr:has(table.torrentname)
 
   fields:
-    title:
-      selector: a[href^="details.php?id="]
-    title:
-      optional: true
-      selector: a[title][href^="details.php?id="]
-      attribute: title
     category:
       selector: a[href^="?cat="]
       attribute: href
       filters:
         - name: querystring
           args: cat
+    title:
+      selector: a[href^="details.php?id="]
+    title:
+      optional: true
+      selector: a[title][href^="details.php?id="]
+      attribute: title
     details:
       selector: a[href^="details.php?id="]
       attribute: href
@@ -125,7 +126,6 @@ search:
       selector: a[href^="download.php?id="]
       attribute: href
     imdb:
-      optional: true
       selector: div.imdb_100 > a
       attribute: href
     size:
@@ -143,7 +143,7 @@ search:
       optional: true
       filters:
         - name: append
-          args: " +08:00"
+          args: " +08:00" # CST
         - name: dateparse
           args: "2006-01-02 15:04:05 -07:00"
     date:
@@ -152,7 +152,7 @@ search:
       optional: true
       filters:
         - name: append
-          args: " +08:00"
+          args: " +08:00" # CST
         - name: dateparse
           args: "2006-01-0215:04:05 -07:00"
     downloadvolumefactor:
@@ -172,4 +172,6 @@ search:
     description:
       selector: td:nth-child(2)
       remove: a, img
+    minimumratio:
+      text: 0.8
 # NexusPHP Standard v1.5 Beta 3

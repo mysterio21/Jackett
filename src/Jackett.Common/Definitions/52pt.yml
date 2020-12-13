@@ -20,9 +20,10 @@ caps:
     - {id: 409, cat: Other, desc: "Misc/其他"}
     - {id: 410, cat: Other, desc: "Opera/戏曲 曲艺"}
     - {id: 408, cat: Audio, desc: "HQ Audio/无损音乐"}
+    - {id: 411, cat: XXX, desc: "Erotic/情色"}
 
   modes:
-    search: [q, imdbid]
+    search: [q]
     tv-search: [q, season, ep, imdbid]
     movie-search: [q, imdbid]
     music-search: [q]
@@ -46,19 +47,19 @@ settings:
   - name: sort
     type: select
     label: Sort requested from site
-    default: "4"
+    default: 4
     options:
-      "4": "created"
-      "7": "seeders"
-      "5": "size"
-      "1": "title"
+      4: created
+      7: seeders
+      5: size
+      1: title
   - name: type
     type: select
     label: Order requested from site
-    default: "desc"
+    default: desc
     options:
-      "desc": "desc"
-      "asc": "asc"
+      desc: desc
+      asc: asc
   - name: info_tpp
     type: info
     label: Results Per Page
@@ -70,15 +71,6 @@ login:
     cookie: "{{ .Config.cookie }}"
   test:
     path: index.php
-
-ratio:
-  path: index.php
-  selector: table tr td.bottom
-  filters:
-    - name: replace
-      args: ["分享率:", "Ratio:"] # for simplified chinese language setting
-    - name: regexp
-      args: "Ratio:\\s(.*?)\\s\\s"
 
 search:
   paths:
@@ -120,7 +112,6 @@ search:
       selector: a[href^="download.php?id="]
       attribute: href
     imdb:
-      optional: true
       selector: div.imdb_100 > a
       attribute: href
     date:
@@ -130,7 +121,7 @@ search:
       optional: true
       filters:
         - name: append
-          args: " +08:00"
+          args: " +08:00" # CST
         - name: dateparse
           args: "2006-01-02 15:04:05 -07:00"
     date:
@@ -139,7 +130,7 @@ search:
       optional: true
       filters:
         - name: append
-          args: " +08:00"
+          args: " +08:00" # CST
         - name: dateparse
           args: "2006-01-0215:04:05 -07:00"
     size:
@@ -167,4 +158,9 @@ search:
     description:
       selector: td:nth-child(2)
       remove: a, img
+    minimumratio:
+      text: 1
+    minimumseedtime:
+      # 1 day (as seconds = 24 x 60 x 60)
+      text: 86400
 # NexusPHP Standard v1.5 Beta 4

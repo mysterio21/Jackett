@@ -31,51 +31,60 @@ namespace Jackett.Common.Utils.Clients
         protected static string webProxyUrl;
         protected static IWebProxy webProxy;
 
-        public static void InitProxy(ServerConfig serverConfig)
+        public void InitProxy(ServerConfig serverConfig)
         {
             // dispose old SocksWebProxy
             if (webProxy is SocksWebProxy proxy)
                 proxy.Dispose();
             webProxy = null;
-            webProxyUrl = serverConfig.GetProxyUrl();
-            if (!string.IsNullOrWhiteSpace(webProxyUrl))
-            {
-                if (serverConfig.ProxyType != ProxyType.Http)
-                {
-                    var addresses = Dns.GetHostAddressesAsync(serverConfig.ProxyUrl).Result;
-                    var socksConfig = new ProxyConfig
-                    {
-                        SocksAddress = addresses.FirstOrDefault(),
-                        Username = serverConfig.ProxyUsername,
-                        Password = serverConfig.ProxyPassword,
-                        Version = serverConfig.ProxyType == ProxyType.Socks4 ?
-                            ProxyConfig.SocksVersion.Four :
-                            ProxyConfig.SocksVersion.Five
-                    };
-                    if (serverConfig.ProxyPort.HasValue)
-                    {
-                        socksConfig.SocksPort = serverConfig.ProxyPort.Value;
-                    }
-                    webProxy = new SocksWebProxy(socksConfig, false);
-                }
-                else
-                {
-                    NetworkCredential creds = null;
-                    if (!serverConfig.ProxyIsAnonymous)
-                    {
-                        var username = serverConfig.ProxyUsername;
-                        var password = serverConfig.ProxyPassword;
-                        creds = new NetworkCredential(username, password);
-                    }
-                    webProxy = new WebProxy(webProxyUrl)
-                    {
-                        BypassProxyOnLocal = false,
-                        Credentials = creds
-                    };
-                }
-            }
-        }
 
+            webProxyUrl = serverConfig.GetProxyUrl();
+            if (serverConfig.ProxyType == ProxyType.Disabled || string.IsNullOrWhiteSpace(webProxyUrl))
+                return;
+            if (serverConfig.ProxyType == ProxyType.Http)
+            {
+                NetworkCredential creds = null;
+                if (!serverConfig.ProxyIsAnonymous)
+                {
+                    var username = serverConfig.ProxyUsername;
+                    var password = serverConfig.ProxyPassword;
+                    creds = new NetworkCredential(username, password);
+                }
+                webProxy = new WebProxy(serverConfig.GetProxyUrl(false)) // proxy URL without credentials
+                {
+                    BypassProxyOnLocal = false,
+                    Credentials = creds
+                };
+            }
+            else if (serverConfig.ProxyType == ProxyType.Socks4 || serverConfig.ProxyType == ProxyType.Socks5)
+            {
+                // in case of error in DNS resolution, we use a fake proxy to avoid leaking the user IP (disabling proxy)
+                // https://github.com/Jackett/Jackett/issues/8826
+                var addresses = new [] { new IPAddress(2130706433) }; // 127.0.0.1
+                try
+                {
+                    addresses = Dns.GetHostAddressesAsync(serverConfig.ProxyUrl).Result;
+                }
+                catch (Exception e)
+                {
+                    logger.Error($"Unable to resolve proxy URL: {serverConfig.ProxyUrl}. The proxy will not work properly.\n{e}");
+                }
+                var socksConfig = new ProxyConfig
+                {
+                    SocksAddress = addresses.FirstOrDefault(),
+                    Username = serverConfig.ProxyUsername,
+                    Password = serverConfig.ProxyPassword,
+                    Version = serverConfig.ProxyType == ProxyType.Socks4 ?
+                        ProxyConfig.SocksVersion.Four :
+                        ProxyConfig.SocksVersion.Five
+                };
+                if (serverConfig.ProxyPort.HasValue)
+                    socksConfig.SocksPort = serverConfig.ProxyPort.Value;
+                webProxy = new SocksWebProxy(socksConfig, false);
+            }
+            else
+                throw new Exception($"Proxy type '{serverConfig.ProxyType}' is not implemented!");
+        }
 
         public double requestDelay
         {
@@ -159,14 +168,24 @@ namespace Jackett.Common.Utils.Clients
 
         public virtual async Task<WebResult> GetResultAsync(WebRequest request)
         {
-            logger.Debug($"WebClient({ClientType}).GetResultAsync(Method: {request.Type} Url: {request.Url})");
+            if (logger.IsDebugEnabled) // performance optimization
+            {
+                var postData = "";
+                if (request.Type == RequestType.POST)
+                {
+                    var lines = request.PostData.Select(kvp => kvp.Key + "=" + kvp.Value);
+                    postData = $" PostData: {{{string.Join(", ", lines)}}} RawBody: {request.RawBody}";
+                }
+                logger.Debug($"WebClient({ClientType}).GetResultAsync(Method: {request.Type} Url: {request.Url}{postData})");
+            }
+
             PrepareRequest(request);
             await DelayRequest(request);
             var result = await Run(request);
             lastRequest = DateTime.Now;
             result.Request = request;
 
-            if (logger.IsDebugEnabled) // optimization to compute result.ContentString in debug mode only
+            if (logger.IsDebugEnabled) // performance optimization to compute result.ContentString in debug mode only
             {
                 var body = "";
                 var bodySize = 0;
@@ -184,8 +203,6 @@ namespace Jackett.Common.Utils.Clients
                                  }{bodySize} bytes{body}");
             }
 
-            if (result.Headers.TryGetValue("server", out var server) && server[0] == "cloudflare-nginx")
-                result.ContentString = BrowserUtil.DecodeCloudFlareProtectedEmailFromHTML(result.ContentString);
             return result;
         }
 
@@ -193,15 +210,7 @@ namespace Jackett.Common.Utils.Clients
         protected virtual async Task<WebResult> Run(WebRequest webRequest) => throw new NotImplementedException();
 #pragma warning restore CS1998 // Async method lacks 'await' operators and will run synchronously
 
-        public virtual void Init()
-        {
-            if (serverConfig.RuntimeSettings.IgnoreSslErrors == true)
-            {
-                logger.Info($"WebClient({ClientType}): Disabling certificate validation");
-                ServicePointManager.ServerCertificateValidationCallback += (sender, certificate, chain, sslPolicyErrors) => { return true; };
-            }
-        }
-
+        public virtual void Init() => ServicePointManager.DefaultConnectionLimit = 1000;
 
         public virtual void OnCompleted() => throw new NotImplementedException();
 

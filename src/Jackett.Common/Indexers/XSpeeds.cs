@@ -29,20 +29,32 @@ namespace Jackett.Common.Indexers
         private new ConfigurationDataBasicLoginWithRSSAndDisplay configData =>
             (ConfigurationDataBasicLoginWithRSSAndDisplay)base.configData;
 
-        public XSpeeds(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps)
+        public XSpeeds(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "xspeeds",
                    name: "XSpeeds",
                    description: "XSpeeds (XS) is a Private Torrent Tracker for MOVIES / TV / GENERAL",
                    link: "https://www.xspeeds.eu/",
                    caps: new TorznabCapabilities
                    {
-                       SupportsImdbMovieSearch = true
-                       // SupportsImdbTVSearch = true (supported by the site but disabled due to #8107)
+                       TvSearchParams = new List<TvSearchParam>
+                       {
+                           TvSearchParam.Q, TvSearchParam.Season, TvSearchParam.Ep, TvSearchParam.ImdbId
+                       },
+                       MovieSearchParams = new List<MovieSearchParam>
+                       {
+                           MovieSearchParam.Q, MovieSearchParam.ImdbId
+                       },
+                       BookSearchParams = new List<BookSearchParam>
+                       {
+                           BookSearchParam.Q
+                       }
                    },
                    configService: configService,
                    client: wc,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationDataBasicLoginWithRSSAndDisplay())
         {
             Encoding = Encoding.UTF8;
@@ -62,7 +74,7 @@ namespace Jackett.Common.Indexers
             AddCategoryMapping(65, TorznabCatType.TVDocumentary, "Documentaries");
             AddCategoryMapping(10, TorznabCatType.MoviesDVD, "DVDR");
             AddCategoryMapping(72, TorznabCatType.MoviesForeign, "Foreign");
-            AddCategoryMapping(74, TorznabCatType.TVOTHER, "Kids");
+            AddCategoryMapping(74, TorznabCatType.TVOther, "Kids");
             AddCategoryMapping(44, TorznabCatType.TVSport, "MMA");
             AddCategoryMapping(11, TorznabCatType.Movies, "Movie Boxsets");
             AddCategoryMapping(12, TorznabCatType.Movies, "Movies");
@@ -87,7 +99,7 @@ namespace Jackett.Common.Indexers
             AddCategoryMapping(16, TorznabCatType.TVSD, "TV-SD");
             AddCategoryMapping(7, TorznabCatType.ConsoleWii, "Wii Games");
             AddCategoryMapping(43, TorznabCatType.TVSport, "Wrestling");
-            AddCategoryMapping(8, TorznabCatType.ConsoleXbox, "Xbox Games");
+            AddCategoryMapping(8, TorznabCatType.ConsoleXBox, "Xbox Games");
 
             // RSS Textual categories
             AddCategoryMapping("4K Movies", TorznabCatType.MoviesUHD);
@@ -103,7 +115,7 @@ namespace Jackett.Common.Indexers
             AddCategoryMapping("Documentaries", TorznabCatType.TVDocumentary);
             AddCategoryMapping("DVDR", TorznabCatType.MoviesDVD);
             AddCategoryMapping("Foreign", TorznabCatType.MoviesForeign);
-            AddCategoryMapping("Kids", TorznabCatType.TVOTHER);
+            AddCategoryMapping("Kids", TorznabCatType.TVOther);
             AddCategoryMapping("MMA", TorznabCatType.TVSport);
             AddCategoryMapping("Movie Boxsets", TorznabCatType.Movies);
             AddCategoryMapping("Movies", TorznabCatType.Movies);
@@ -127,7 +139,7 @@ namespace Jackett.Common.Indexers
             AddCategoryMapping("TV-SD", TorznabCatType.TVSD);
             AddCategoryMapping("Wii Games", TorznabCatType.ConsoleWii);
             AddCategoryMapping("Wrestling", TorznabCatType.TVSport);
-            AddCategoryMapping("Xbox Games", TorznabCatType.ConsoleXbox);
+            AddCategoryMapping("Xbox Games", TorznabCatType.ConsoleXBox);
         }
 
         public override async Task<ConfigurationData> GetConfigurationForSetup()
@@ -254,7 +266,7 @@ namespace Jackett.Common.Indexers
 
                     release.Guid = new Uri(row.QuerySelector("td:nth-of-type(3) a").GetAttribute("href"));
                     release.Link = release.Guid;
-                    release.Comments = new Uri(qDetails.GetAttribute("href"));
+                    release.Details = new Uri(qDetails.GetAttribute("href"));
                     //08-08-2015 12:51
                     release.PublishDate = DateTime.ParseExact(
                         row.QuerySelectorAll("td:nth-of-type(2) div").Last().TextContent.Trim(), "dd-MM-yyyy H:mm",
@@ -263,9 +275,9 @@ namespace Jackett.Common.Indexers
                     release.Peers = release.Seeders + ParseUtil.CoerceInt(row.QuerySelector("td:nth-of-type(8)").TextContent.Trim());
                     release.Size = ReleaseInfo.GetBytes(row.QuerySelector("td:nth-of-type(5)").TextContent.Trim());
 
-                    var qBanner = row.QuerySelector("td:nth-of-type(2) .tooltip-content img");
-                    if (qBanner != null)
-                        release.BannerUrl = new Uri(qBanner.GetAttribute("src"));
+                    var qPoster = row.QuerySelector("td:nth-of-type(2) .tooltip-content img");
+                    if (qPoster != null)
+                        release.Poster = new Uri(qPoster.GetAttribute("src"));
 
                     var cat = row.QuerySelector("td:nth-of-type(1) a").GetAttribute("href");
                     var catSplit = cat.LastIndexOf('=');
@@ -287,6 +299,8 @@ namespace Jackett.Common.Indexers
                         release.UploadVolumeFactor = 2;
                     else
                         release.UploadVolumeFactor = 1;
+
+                    release.MinimumRatio = 0.8;
 
                     releases.Add(release);
                 }

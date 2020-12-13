@@ -17,8 +17,8 @@ caps:
     - {id: 65, cat: TV/HD, desc: "Pack Series VOSE"}
     - {id: 80, cat: Movies/BluRay, desc: "BDRip X265 1080p"}
     - {id: 81, cat: Movies/UHD, desc: "UHDRip x265 4K"}
-    - {id: 82, cat: Movies/WEBDL, desc: "Pelis Web-DL 1080"}
-    - {id: 83, cat: Movies/WEBDL, desc: "Pelis Web-DL 720"}
+    - {id: 82, cat: Movies/WEB-DL, desc: "Pelis Web-DL 1080"}
+    - {id: 83, cat: Movies/WEB-DL, desc: "Pelis Web-DL 720"}
     - {id: 84, cat: Movies/UHD, desc: "UHD Remux x265"}
     - {id: 23, cat: TV/Sport, desc: "Deportes"}
     - {id: 20, cat: TV/HD, desc: "Series"}
@@ -33,11 +33,11 @@ caps:
     - {id: 79, cat: Movies, desc: "Saga Star Wars"}
     - {id: 18, cat: Movies/BluRay, desc: "Video Full & Remux"}
     - {id: 76, cat: Movies, desc: "x-men saga"}
-    - {id: 6, cat: Books/Ebook, desc: "EBooks"}
-    - {id: 58, cat: Books/Ebook, desc: "Kiosko"}
+    - {id: 6, cat: Books/EBook, desc: "EBooks"}
+    - {id: 58, cat: Books/EBook, desc: "Kiosko"}
     - {id: 24, cat: TV/Documentary, desc: "Documentales"}
     - {id: 32, cat: TV/Documentary, desc: "Documentales VOSE"}
-    - {id: 49, cat: Books/Ebook, desc: "eLearning"}
+    - {id: 49, cat: Books/EBook, desc: "eLearning"}
     - {id: 68, cat: TV, desc: "eLearning Multimedia"}
     - {id: 16, cat: Movies/DVD, desc: "DVD-Rip"}
     - {id: 48, cat: Movies/BluRay, desc: "BR-Rip/HD-Rip"}
@@ -56,6 +56,7 @@ caps:
     tv-search: [q, season, ep]
     movie-search: [q]
     music-search: [q]
+    book-search: [q]
 
 settings:
   - name: cookie
@@ -72,19 +73,19 @@ settings:
   - name: sort
     type: select
     label: Sort requested from site
-    default: "3"
+    default: 3
     options:
-      "3": "created"
-      "5": "seeders"
-      "4": "size"
-      "2": "title"
+      3: created
+      5: seeders
+      4: size
+      2: title
   - name: type
     type: select
     label: Order requested from site
-    default: "2"
+    default: 2
     options:
-      "2": "desc"
-      "1": "asc"
+      2: desc
+      1: asc
   - name: info_results
     type: info
     label: Results Per Page
@@ -125,14 +126,22 @@ search:
       optional: true
       filters:
         - name: append
-          args: " [English]"
+          args: " English"
     title:
       selector: a[href^="index.php?page=torrent-details"][onmouseover]:not(:contains("VOSE"))
       optional: true
       filters:
+        - name: re_replace
+          args: ["\\W", "."] # Spaces and other characters -> .
         - name: append
-          args: " [Spanish] [English]"
-    banner:
+          args: ".Spanish-DivTeam"
+        - name: re_replace
+          args: ["\\.+", "."] # More than 1 dot -> .
+        - name: re_replace
+          args: ["^\\.", ""] # Delete first dot
+        - name: re_replace
+          args: ["UHDRip", "BDRip"] # Fix for Radarr
+    poster:
       selector: a[onmouseover][href^="index.php?page=torrent-details"]
       attribute: onmouseover
       filters:
@@ -152,8 +161,10 @@ search:
     date:
       selector: td:nth-child(6)
       filters:
+        - name: append
+          args: " +00:00" # auto adjusted by site account profile
         - name: dateparse
-          args: "02/01/2006"
+          args: "02/01/2006 -07:00"
     seeders:
       selector: td:nth-last-child(4)
     leechers:
@@ -173,4 +184,9 @@ search:
         img[src="images/4x.png"]: 4
         img[src="images/5x.png"]: 5
         "*": 1
+    minimumratio:
+      text: 0.7
+    minimumseedtime:
+      # 2 days (as seconds = 2 x 24 x 60 x 60)
+      text: 172800
 # xbtit customised

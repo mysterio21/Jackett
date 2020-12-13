@@ -37,7 +37,7 @@ namespace Jackett.Common.Indexers
             set => base.configData = value;
         }
 
-        protected readonly string[] OptionalFields = new string[] { "imdb", "rageid", "tvdbid", "banner" };
+        protected readonly string[] OptionalFields = { "imdb", "rageid", "tmdbid", "tvdbid", "poster" };
 
         private static readonly string[] _SupportedLogicFunctions =
         {
@@ -58,11 +58,13 @@ namespace Jackett.Common.Indexers
             @$"\b({string.Join("|", _SupportedLogicFunctions.Select(Regex.Escape))})(?:\s+(\(?\.[^\)\s]+\)?|""[^""]+"")){{2,}}");
 
         public CardigannIndexer(IIndexerConfigurationService configService, Utils.Clients.WebClient wc, Logger l,
-                                IProtectionService ps, IndexerDefinition Definition)
+                                IProtectionService ps, ICacheService cs, IndexerDefinition Definition)
             : base(configService: configService,
                    client: wc,
                    logger: l,
-                   p: ps)
+                   p: ps,
+                   cacheService: cs
+                   )
         {
             this.Definition = Definition;
             Id = Definition.Id;
@@ -111,17 +113,8 @@ namespace Jackett.Common.Indexers
                 DefaultSiteLink += "/";
             Language = Definition.Language;
             Type = Definition.Type;
-            TorznabCaps = new TorznabCapabilities
-            {
-                // SupportsImdbTVSearch temporarily disabled due to #8107
-                // SupportsImdbTVSearch = Definition.Caps.Modes.Any(c => c.Key == "tv-search" && c.Value.Contains("imdbid")),
-                SupportsTvdbSearch = Definition.Caps.Modes.Any(c => c.Key == "tv-search" && c.Value.Contains("tvdbid")),
-                SupportsImdbMovieSearch = Definition.Caps.Modes.Any(c => c.Key == "movie-search" && c.Value.Contains("imdbid")),
-                SupportsTmdbMovieSearch = Definition.Caps.Modes.Any(c => c.Key == "movie-search" && c.Value.Contains("tmdbid")),
-                BookSearchAvailable = Definition.Caps.Modes.Any(c => c.Key == "book-search" && c.Value.Contains("author") && c.Value.Contains("title"))
-            };
-            if (Definition.Caps.Modes.ContainsKey("music-search"))
-                TorznabCaps.SupportedMusicSearchParamsList = Definition.Caps.Modes["music-search"];
+            TorznabCaps = new TorznabCapabilities();
+            TorznabCaps.ParseCardigannSearchModes(Definition.Caps.Modes);
 
             // init config Data
             configData = new ConfigurationData();
@@ -511,47 +504,6 @@ namespace Jackett.Common.Indexers
                 var queryCollection = new NameValueCollection();
                 var pairs = new Dictionary<string, string>();
 
-                var CaptchaConfigItem = (RecaptchaItem)configData.GetDynamic("Captcha");
-
-                if (CaptchaConfigItem != null)
-                {
-                    if (!string.IsNullOrWhiteSpace(CaptchaConfigItem.Cookie))
-                    {
-                        // for remote users just set the cookie and return
-                        CookieHeader = CaptchaConfigItem.Cookie;
-                        return true;
-                    }
-
-                    var CloudFlareCaptchaChallenge = landingResultDocument.QuerySelector("script[src=\"/cdn-cgi/scripts/cf.challenge.js\"]");
-                    if (CloudFlareCaptchaChallenge != null)
-                    {
-                        var CloudFlareQueryCollection = new NameValueCollection
-                        {
-                            ["id"] = CloudFlareCaptchaChallenge.GetAttribute("data-ray"),
-
-                            ["g-recaptcha-response"] = CaptchaConfigItem.Value
-                        };
-                        var ClearanceUrl = resolvePath("/cdn-cgi/l/chk_captcha?" + CloudFlareQueryCollection.GetQueryString());
-                        var ClearanceResult = await RequestWithCookiesAsync(ClearanceUrl.ToString(), referer: SiteLink);
-
-                        if (ClearanceResult.IsRedirect) // clearance successfull
-                        {
-                            // request real login page again
-                            landingResult = await RequestWithCookiesAsync(LoginUrl, referer: SiteLink);
-                            var htmlParser = new HtmlParser();
-                            landingResultDocument = htmlParser.ParseDocument(landingResult.ContentString);
-                        }
-                        else
-                        {
-                            throw new ExceptionWithConfigData(string.Format("Login failed: Cloudflare clearance failed using cookies {0}: {1}", CookieHeader, ClearanceResult.ContentString), configData);
-                        }
-                    }
-                    else
-                    {
-                        pairs.Add("g-recaptcha-response", CaptchaConfigItem.Value);
-                    }
-                }
-
                 var FormSelector = Login.Form;
                 if (FormSelector == null)
                     FormSelector = "form";
@@ -889,35 +841,15 @@ namespace Jackett.Common.Indexers
                 configData.CookieHeader.Value = string.Join("; ", Login.Cookies);
             landingResult = await RequestWithCookiesAsync(LoginUrl.AbsoluteUri, referer: SiteLink);
 
-            var htmlParser = new HtmlParser();
-            landingResultDocument = htmlParser.ParseDocument(landingResult.ContentString);
+            // Some sites have a temporary redirect before the login page, we need to process it.
+            if (Definition.Followredirect)
+            {
+                await FollowIfRedirect(landingResult, LoginUrl.AbsoluteUri, overrideCookies: landingResult.Cookies, accumulateCookies: true);
+            }
 
             var hasCaptcha = false;
-
-            var cloudFlareCaptchaScript = landingResultDocument.QuerySelector("script[src*=\"/recaptcha/api.js\"]");
-            var cloudFlareCaptchaGroup = landingResultDocument.QuerySelector("#recaptca_group");
-            var cloudFlareCaptchaDisplay = true;
-            if (cloudFlareCaptchaGroup != null)
-            {
-                var cloudFlareCaptchaGroupStyle = cloudFlareCaptchaGroup.GetAttribute("style");
-                if (cloudFlareCaptchaGroupStyle != null)
-                    cloudFlareCaptchaDisplay = !cloudFlareCaptchaGroupStyle.Contains("display:none;");
-            }
-            var grecaptcha = landingResultDocument.QuerySelector(".g-recaptcha");
-            if (cloudFlareCaptchaScript != null && grecaptcha != null && cloudFlareCaptchaDisplay)
-            {
-                hasCaptcha = true;
-                var CaptchaItem = new RecaptchaItem
-                {
-                    Name = "Captcha",
-                    Version = "2",
-                    // some sites don't store the sitekey in the .g-recaptcha div (e.g. cloudflare captcha challenge page)
-                    SiteKey = grecaptcha.GetAttribute("data-sitekey") ??
-                              landingResultDocument.QuerySelector("[data-sitekey]").GetAttribute("data-sitekey")
-                };
-
-                configData.AddDynamic("Captcha", CaptchaItem);
-            }
+            var htmlParser = new HtmlParser();
+            landingResultDocument = htmlParser.ParseDocument(landingResult.ContentString);
 
             if (Login.Captcha != null)
             {
@@ -1310,7 +1242,7 @@ namespace Jackett.Common.Indexers
                                 var rawStr = applyGoTemplateText(Input.Value, variables, WebUtility.UrlEncode);
                                 foreach (var part in rawStr.Split('&'))
                                 {
-                                    var parts = part.Split(new char[] { '=' }, 2);
+                                    var parts = part.Split(new[] { '=' }, 2);
                                     var key = parts[0];
                                     if (key.Length == 0)
                                         continue;
@@ -1333,9 +1265,7 @@ namespace Jackett.Common.Indexers
                 }
                 var searchUrlUri = new Uri(searchUrl);
 
-                logger.Info($"Fetching: {searchUrl}");
-
-                // send HTTP request
+               // send HTTP request
                 Dictionary<string, string> headers = null;
                 if (Search.Headers != null)
                 {
@@ -1419,11 +1349,7 @@ namespace Jackett.Common.Indexers
                     {
                         try
                         {
-                            var release = new ReleaseInfo
-                            {
-                                MinimumRatio = 1,
-                                MinimumSeedTime = 172800 // 48 hours
-                            };
+                            var release = new ReleaseInfo();
 
                             // Parse fields
                             foreach (var Field in Search.Fields)
@@ -1451,7 +1377,6 @@ namespace Jackett.Common.Indexers
                                             if (value.StartsWith("magnet:"))
                                             {
                                                 release.MagnetUri = new Uri(value);
-                                                //release.Link = release.MagnetUri;
                                                 value = release.MagnetUri.ToString();
                                             }
                                             else
@@ -1467,21 +1392,15 @@ namespace Jackett.Common.Indexers
                                             if (release.Guid == null)
                                                 release.Guid = magnetUri;
                                             break;
+                                        case "infohash":
+                                            release.InfoHash = value;
+                                            break;
                                         case "details":
                                             var url = resolvePath(value, searchUrlUri);
-                                            release.Guid = url;
-                                            release.Comments = url;
+                                            release.Details = url;
                                             if (release.Guid == null)
                                                 release.Guid = url;
                                             value = url.ToString();
-                                            break;
-                                        case "comments":
-                                            var CommentsUrl = resolvePath(value, searchUrlUri);
-                                            if (release.Comments == null)
-                                                release.Comments = CommentsUrl;
-                                            if (release.Guid == null)
-                                                release.Guid = CommentsUrl;
-                                            value = CommentsUrl.ToString();
                                             break;
                                         case "title":
                                             if (FieldModifiers.Contains("append"))
@@ -1589,13 +1508,13 @@ namespace Jackett.Common.Indexers
                                         case "booktitle":
                                             release.BookTitle = value;
                                             break;
-                                        case "banner":
+                                        case "poster":
                                             if (!string.IsNullOrWhiteSpace(value))
                                             {
-                                                var bannerurl = resolvePath(value, searchUrlUri);
-                                                release.BannerUrl = bannerurl;
+                                                var poster = resolvePath(value, searchUrlUri);
+                                                release.Poster = poster;
                                             }
-                                            value = release.BannerUrl.ToString();
+                                            value = release.Poster.ToString();
                                             break;
                                         default:
                                             break;
@@ -1628,13 +1547,13 @@ namespace Jackett.Common.Indexers
                                             if (Filter.Args != null)
                                                 CharacterLimit = int.Parse(Filter.Args);
 
-                                            if (query.ImdbID != null && TorznabCaps.SupportsImdbMovieSearch)
+                                            if (query.ImdbID != null && TorznabCaps.MovieSearchImdbAvailable)
                                                 break; // skip andmatch filter for imdb searches
 
-                                            if (query.TmdbID != null && TorznabCaps.SupportsTmdbMovieSearch)
+                                            if (query.TmdbID != null && TorznabCaps.MovieSearchTmdbAvailable)
                                                 break; // skip andmatch filter for tmdb searches
 
-                                            if (query.TvdbID != null && TorznabCaps.SupportsTvdbSearch)
+                                            if (query.TvdbID != null && TorznabCaps.TvSearchTvdbAvailable)
                                                 break; // skip andmatch filter for tvdb searches
 
                                             var queryKeywords = variables[".Keywords"] as string;
@@ -1781,14 +1700,11 @@ namespace Jackett.Common.Indexers
                 var variables = GetBaseTemplateVariables();
                 AddTemplateVariablesFromUri(variables, link, ".DownloadUri");
                 if (Download.Before != null)
-                {
-                    var beforeresult = await handleRequest(Download.Before, variables, link.ToString());
-                }
-                if (Download.Method != null)
-                {
-                    if (Download.Method == "post")
-                        method = RequestType.POST;
-                }
+                    await handleRequest(Download.Before, variables, link.ToString());
+
+                if (Download.Method == "post")
+                    method = RequestType.POST;
+
                 if (Download.Selector != null)
                 {
                     var selector = applyGoTemplateText(Download.Selector, variables);
@@ -1823,7 +1739,7 @@ namespace Jackett.Common.Indexers
                     }
                 }
             }
-            return await base.Download(link, method);
+            return await base.Download(link, method, link.ToString());
         }
     }
 }

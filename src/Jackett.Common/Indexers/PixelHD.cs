@@ -32,18 +32,23 @@ namespace Jackett.Common.Indexers
         private string input_username = null;
         private string input_password = null;
 
-        public PixelHD(IIndexerConfigurationService configService, WebClient webClient, Logger logger, IProtectionService protectionService)
+        public PixelHD(IIndexerConfigurationService configService, WebClient webClient, Logger logger,
+            IProtectionService ps, ICacheService cs)
             : base(id: "pixelhd",
                    name: "PiXELHD",
                    description: "PixelHD (PxHD) is a Private Torrent Tracker for HD .MP4 MOVIES / TV",
                    link: "https://pixelhd.me/",
                    caps: new TorznabCapabilities
                    {
-                       SupportsImdbMovieSearch = true
+                       MovieSearchParams = new List<MovieSearchParam>
+                       {
+                           MovieSearchParam.Q, MovieSearchParam.ImdbId
+                       }
                    },
                    configService: configService,
                    logger: logger,
-                   p: protectionService,
+                   p: ps,
+                   cacheService: cs,
                    client: webClient,
                    configData: new ConfigurationDataCaptchaLogin()
                 )
@@ -89,7 +94,7 @@ namespace Jackett.Common.Indexers
 
         public override async Task<IndexerConfigurationStatus> ApplyConfiguration(JToken configJson)
         {
-            configData.LoadValuesFromJson(configJson);
+            LoadValuesFromJson(configJson);
 
             var pairs = new Dictionary<string, string>
             {
@@ -156,7 +161,7 @@ namespace Jackett.Common.Indexers
                 foreach (var Group in Groups)
                 {
                     var groupPoster = Group.QuerySelector("img.classBrowsePoster");
-                    var bannerURL = new Uri(SiteLink + groupPoster.GetAttribute("src"));
+                    var poster = new Uri(SiteLink + groupPoster.GetAttribute("src"));
 
                     long? IMDBId = null;
                     var imdbLink = Group.QuerySelector("a[href*=\"www.imdb.com/title/tt\"]");
@@ -179,11 +184,12 @@ namespace Jackett.Common.Indexers
                         var Leechers = Row.QuerySelector("td:nth-child(8)");
                         var link = new Uri(SiteLink + Row.QuerySelector("a[href^=\"torrents.php?action=download\"]").GetAttribute("href"));
                         var seeders = ParseUtil.CoerceInt(Seeders.TextContent);
-                        var comments = new Uri(SiteLink + title.GetAttribute("href"));
+                        var details = new Uri(SiteLink + title.GetAttribute("href"));
                         var size = ReleaseInfo.GetBytes(Size.TextContent);
                         var leechers = ParseUtil.CoerceInt(Leechers.TextContent);
                         var grabs = ParseUtil.CoerceLong(Grabs.TextContent);
                         var publishDate = DateTimeUtil.FromTimeAgo(added.TextContent);
+
                         var release = new ReleaseInfo
                         {
                             MinimumRatio = 1,
@@ -191,14 +197,14 @@ namespace Jackett.Common.Indexers
                             Title = group + " " + title.TextContent,
                             Category = new List<int> { TorznabCatType.MoviesHD.ID },
                             Link = link,
-                            Comments = comments,
+                            Details = details,
                             Guid = link,
                             Size = size,
                             Seeders = seeders,
                             Peers = leechers + seeders,
                             Grabs = grabs,
                             PublishDate = publishDate,
-                            BannerUrl = bannerURL,
+                            Poster = poster,
                             Imdb = IMDBId
                         };
                         releases.Add(release);

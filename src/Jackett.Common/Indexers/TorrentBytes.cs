@@ -24,30 +24,43 @@ namespace Jackett.Common.Indexers
 
         private new ConfigurationDataBasicLogin configData => (ConfigurationDataBasicLogin)base.configData;
 
-        public TorrentBytes(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps)
+        public TorrentBytes(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "torrentbytes",
                    name: "TorrentBytes",
                    description: "A decade of TorrentBytes",
                    link: "https://www.torrentbytes.net/",
-                   caps: TorznabUtil.CreateDefaultTorznabTVCaps(),
+                   caps: new TorznabCapabilities
+                   {
+                       TvSearchParams = new List<TvSearchParam>
+                       {
+                           TvSearchParam.Q, TvSearchParam.Season, TvSearchParam.Ep, TvSearchParam.ImdbId
+                       },
+                       MovieSearchParams = new List<MovieSearchParam>
+                       {
+                           MovieSearchParam.Q, MovieSearchParam.ImdbId
+                       },
+                       MusicSearchParams = new List<MusicSearchParam>
+                       {
+                           MusicSearchParam.Q
+                       }
+                   },
                    configService: configService,
                    client: wc,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationDataBasicLogin("For best results, change the 'Torrents per page' setting to 100 in your profile on the TorrentBytes webpage."))
         {
             Encoding = Encoding.GetEncoding("iso-8859-1");
             Language = "en-us";
             Type = "private";
 
-            TorznabCaps.SupportsImdbMovieSearch = true;
-            // TorznabCaps.SupportsImdbTVSearch = true; (supported by the site but disabled due to #8107)
-
             AddCategoryMapping(23, TorznabCatType.TVAnime, "Anime");
             AddCategoryMapping(52, TorznabCatType.PCMac, "Apple/All");
             AddCategoryMapping(22, TorznabCatType.PC, "Apps/misc");
             AddCategoryMapping(1, TorznabCatType.PC, "Apps/PC");
-            AddCategoryMapping(28, TorznabCatType.TVFOREIGN, "Foreign Titles");
+            AddCategoryMapping(28, TorznabCatType.TVForeign, "Foreign Titles");
             AddCategoryMapping(50, TorznabCatType.Console, "Games/Consoles");
             AddCategoryMapping(42, TorznabCatType.PCGames, "Games/Pack");
             AddCategoryMapping(4, TorznabCatType.PCGames, "Games/PC");
@@ -73,8 +86,8 @@ namespace Jackett.Common.Indexers
             AddCategoryMapping(33, TorznabCatType.TVSD, "TV/SD");
             AddCategoryMapping(32, TorznabCatType.TVUHD, "TV/UHD");
             AddCategoryMapping(39, TorznabCatType.XXXx264, "XXX/HD");
-            AddCategoryMapping(24, TorznabCatType.XXXImageset, "XXX/IMGSET");
-            AddCategoryMapping(21, TorznabCatType.XXXPacks, "XXX/Pack");
+            AddCategoryMapping(24, TorznabCatType.XXXImageSet, "XXX/IMGSET");
+            AddCategoryMapping(21, TorznabCatType.XXXPack, "XXX/Pack");
             AddCategoryMapping(9, TorznabCatType.XXXXviD, "XXX/SD");
             AddCategoryMapping(29, TorznabCatType.XXX, "XXX/Web");
         }
@@ -145,7 +158,7 @@ namespace Jackett.Common.Indexers
                     var release = new ReleaseInfo();
                     var link = row.QuerySelector("td:nth-of-type(2) a:nth-of-type(2)");
                     release.Guid = new Uri(SiteLink + link.GetAttribute("href"));
-                    release.Comments = release.Guid;
+                    release.Details = release.Guid;
                     release.Title = link.GetAttribute("title");
 
                     // There isn't a title attribute if the release name isn't truncated.

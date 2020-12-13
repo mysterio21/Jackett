@@ -157,16 +157,16 @@ settings:
   - name: sort
     type: select
     label: Sort requested from site
-    default: "date_desc"
+    default: date_desc
     options:
-      "date_desc": "created desc"
-      "date_asc": "created asc"
-      "sd_desc": "seeders desc"
-      "sd_asc": "seeders asc"
-      "sz_desc": "size desc"
-      "sz_asc": "size asc"
-      "name_desc": "title desc"
-      "name_asc": "title asc"
+      date_desc: "created desc"
+      date_asc: "created asc"
+      sd_desc: "seeders desc"
+      sd_asc: "seeders asc"
+      sz_desc: "size desc"
+      sz_asc: "size asc"
+      name_desc: "title desc"
+      name_asc: "title asc"
 
 login:
   path: login
@@ -185,11 +185,11 @@ search:
   paths:
     # only 20 results per page
     # https://www.racingfor.me/search/truck?c=-1&ob=sz_desc&offset=20#results
-    - path: "search/{{ if .Keywords }}{{ .Keywords }}{{else}}*{{end}}"
-    - path: "search/{{ if .Keywords }}{{ .Keywords }}{{else}}*{{end}}"
+    - path: "search/{{ if .Keywords }}{{ .Keywords }}{{ else }}*{{ end }}"
+    - path: "search/{{ if .Keywords }}{{ .Keywords }}{{ else }}*{{ end }}"
       inputs:
         offset: 20
-    - path: "search/{{ if .Keywords }}{{ .Keywords }}{{else}}*{{end}}"
+    - path: "search/{{ if .Keywords }}{{ .Keywords }}{{ else }}*{{ end }}"
       inputs:
         offset: 40
   keywordsfilters:

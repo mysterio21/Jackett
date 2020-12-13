@@ -31,16 +31,20 @@ namespace Jackett.Common.Indexers
             "https://www.cinecalidad.eu/"
         };
 
-        public Cinecalidad(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps)
+        public Cinecalidad(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "cinecalidad",
                    name: "Cinecalidad",
                    description: "Películas Full HD en Castellano y Latino Dual.",
                    link: "https://www.cinecalidad.is/",
-                   caps: new TorznabCapabilities(),
+                   caps: new TorznabCapabilities {
+                       MovieSearchParams = new List<MovieSearchParam> { MovieSearchParam.Q }
+                   },
                    configService: configService,
                    client: wc,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationData())
         {
             Encoding = Encoding.UTF8;
@@ -49,13 +53,13 @@ namespace Jackett.Common.Indexers
 
             var language = new SelectItem(new Dictionary<string, string>
                 {
-                    {"castellano", "Spanish Castellano"},
-                    {"latino", "Spanish Latino"}
+                    {"castellano", "Castilian Spanish"},
+                    {"latino", "Latin American Spanish"}
                 })
-                {
-                    Name = "Select language",
-                    Value = "castellano"
-                };
+            {
+                Name = "Select language",
+                Value = "castellano"
+            };
             configData.AddDynamic("language", language);
 
             AddCategoryMapping(1, TorznabCatType.MoviesHD);
@@ -104,7 +108,7 @@ namespace Jackett.Common.Indexers
                 var pageReleases = ParseReleases(response, query);
 
                 // publish date is not available in the torrent list, but we add a relative date so we can sort
-                foreach(var release in pageReleases)
+                foreach (var release in pageReleases)
                 {
                     release.PublishDate = lastPublishDate;
                     lastPublishDate = lastPublishDate.AddMinutes(-1);
@@ -126,10 +130,16 @@ namespace Jackett.Common.Indexers
             {
                 var parser = new HtmlParser();
                 var dom = parser.ParseDocument(results.ContentString);
-                var preotectedLink = dom.QuerySelector("a[service=BitTorrent]").GetAttribute("href");
-                preotectedLink = SiteLink + preotectedLink.TrimStart('/');
+                var protectedLink = dom.QuerySelector("a[service=BitTorrent]").GetAttribute("href");
+                if (protectedLink.Contains("/ouo.io/"))
+                {
+                    // protected link =>
+                    // https://ouo.io/qs/qsW6rCh4?s=https://www.cinecalidad.is/protect/v2.php?i=A8--9InL&title=High+Life+%282018%29
+                    var linkParts = protectedLink.Split('=');
+                    protectedLink = protectedLink.Replace(linkParts[0] + "=", "");
+                }
 
-                results = await RequestWithCookiesAsync(preotectedLink);
+                results = await RequestWithCookiesAsync(protectedLink);
                 dom = parser.ParseDocument(results.ContentString);
                 var magnetUrl = dom.QuerySelector("a[href^=magnet]").GetAttribute("href");
                 return await base.Download(new Uri(magnetUrl));
@@ -160,26 +170,24 @@ namespace Jackett.Common.Indexers
                     var title = qImg.GetAttribute("title");
                     if (!CheckTitleMatchWords(query.GetQueryString(), title))
                         continue; // skip if it doesn't contain all words
-                    title += _language.Equals("castellano") ? " SPANiSH" : " LATiN-SPANiSH";
-                    title += " DUAL 1080p BDRip x264";
+                    title += _language.Equals("castellano") ? " MULTi/SPANiSH" : " MULTi/LATiN SPANiSH";
+                    title += " 1080p BDRip x264";
 
-                    var banner = new Uri(qImg.GetAttribute("src"));
+                    var poster = new Uri(qImg.GetAttribute("src"));
                     var link = new Uri(row.QuerySelector("a").GetAttribute("href"));
 
                     var release = new ReleaseInfo
                     {
                         Title = title,
                         Link = link,
-                        Comments = link,
+                        Details = link,
                         Guid = link,
-                        Category = new List<int> {TorznabCatType.MoviesHD.ID},
-                        BannerUrl = banner,
+                        Category = new List<int> { TorznabCatType.MoviesHD.ID },
+                        Poster = poster,
                         Size = 2147483648, // 2 GB
                         Files = 1,
                         Seeders = 1,
                         Peers = 2,
-                        MinimumRatio = 1,
-                        MinimumSeedTime = 172800, // 48 hours
                         DownloadVolumeFactor = 0,
                         UploadVolumeFactor = 1
                     };

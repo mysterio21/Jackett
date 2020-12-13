@@ -31,27 +31,29 @@ namespace Jackett.Common.Indexers
             set => base.configData = value;
         }
 
-        public PirateTheNet(IIndexerConfigurationService configService, WebClient w, Logger l, IProtectionService ps)
+        public PirateTheNet(IIndexerConfigurationService configService, WebClient w, Logger l,
+            IProtectionService ps, ICacheService cs)
             : base(id: "piratethenet",
                    name: "PirateTheNet",
                    description: "A movie tracker",
                    link: "http://piratethenet.org/",
                    caps: new TorznabCapabilities
                    {
-                       SupportsImdbMovieSearch = true
+                       MovieSearchParams = new List<MovieSearchParam>
+                       {
+                           MovieSearchParam.Q, MovieSearchParam.ImdbId
+                       }
                    },
                    configService: configService,
                    client: w,
                    logger: l,
                    p: ps,
-                   configData: new ConfigurationDataBasicLoginWithRSSAndDisplay())
+                   cacheService: cs,
+                   configData: new ConfigurationDataBasicLoginWithRSSAndDisplay("Only the results from the first search result page are shown, adjust your profile settings to show the maximum."))
         {
             Encoding = Encoding.UTF8;
             Language = "en-us";
             Type = "private";
-
-            configData.DisplayText.Value = "Only the results from the first search result page are shown, adjust your profile settings to show the maximum.";
-            configData.DisplayText.Name = "Notice";
 
             AddCategoryMapping("1080P", TorznabCatType.MoviesHD, "1080P");
             AddCategoryMapping("2160P", TorznabCatType.MoviesHD, "2160P");
@@ -170,7 +172,7 @@ namespace Jackett.Common.Indexers
                     var seeders = ParseUtil.CoerceInt(qSeeders.Text());
                     var files = ParseUtil.CoerceInt(row.QuerySelector("td:nth-child(4)").TextContent);
                     var grabs = ParseUtil.CoerceInt(row.QuerySelector("td:nth-child(8)").TextContent);
-                    var comments = new Uri(SiteLink + qDetailsLink.GetAttribute("href"));
+                    var details = new Uri(SiteLink + qDetailsLink.GetAttribute("href"));
                     var size = ReleaseInfo.GetBytes(sizeStr);
                     var leechers = ParseUtil.CoerceInt(qLeechers.Text());
                     var title = qDetailsLink.GetAttribute("alt");
@@ -181,7 +183,7 @@ namespace Jackett.Common.Indexers
                         Title = title,
                         Category = MapTrackerCatToNewznab(catStr),
                         Link = link,
-                        Comments = comments,
+                        Details = details,
                         Guid = link,
                         PublishDate = pubDateUtc.ToLocalTime(),
                         Size = size,

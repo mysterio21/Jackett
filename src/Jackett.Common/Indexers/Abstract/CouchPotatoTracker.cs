@@ -27,8 +27,8 @@ namespace Jackett.Common.Indexers.Abstract
 
         protected CouchPotatoTracker(string link, string id, string name, string description,
                                      IIndexerConfigurationService configService, WebClient client, Logger logger,
-                                     IProtectionService p, TorznabCapabilities caps, ConfigurationData configData,
-                                     string endpoint)
+                                     IProtectionService p, ICacheService cs, TorznabCapabilities caps,
+                                     ConfigurationData configData, string endpoint)
             : base(id: id,
                    name: name,
                    description: description,
@@ -38,6 +38,7 @@ namespace Jackett.Common.Indexers.Abstract
                    client: client,
                    logger: logger,
                    p: p,
+                   cacheService: cs,
                    configData: configData)
         {
             this.endpoint = endpoint;
@@ -100,7 +101,7 @@ namespace Jackett.Common.Indexers.Abstract
                     var release = new ReleaseInfo
                     {
                         Title = (string)r["release_name"],
-                        Comments = new Uri((string)r["details_url"]),
+                        Details = new Uri((string)r["details_url"]),
                         Link = new Uri((string)r["download_url"])
                     };
                     release.Guid = release.Link;

@@ -29,6 +29,7 @@ caps:
     search: [q]
     tv-search: [q]
     movie-search: [q]
+    music-search: [q]
 
 settings:
   - name: cookie
@@ -45,19 +46,19 @@ settings:
   - name: sort
     type: select
     label: Sort requested from site
-    default: "id"
+    default: id
     options:
-      "id": "created"
-      "seeders": "seeders"
-      "size": "size"
-      "name": "title"
+      id: created
+      seeders: seeders
+      size: size
+      name: title
   - name: type
     type: select
     label: Order requested from site
-    default: "desc"
+    default: desc
     options:
-      "desc": "desc"
-      "asc": "asc"
+      desc: desc
+      asc: asc
 
 login:
   method: cookie
@@ -68,10 +69,6 @@ login:
   test:
     path: /
     selector: a[href="account-logout.php"]
-
-ratio:
-  path: /
-  selector: td:contains("Ratio") ~ td
 
 search:
   paths:
@@ -132,7 +129,7 @@ search:
       selector: td:last-child
       filters:
         - name: append
-          args: " +09:00"
+          args: " +00:00" # auto adjusted by site account profile
         - name: dateparse
           args: "060102 15:04:05 -07:00"
     downloadvolumefactor:
@@ -144,4 +141,6 @@ search:
       case:
         img[src="images/freeleech2.png"]: 2
         "*": 1
+    minimumratio:
+      text: 0.8
 # TorrentTrader v2-svn

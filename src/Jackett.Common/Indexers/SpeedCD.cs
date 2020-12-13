@@ -32,20 +32,36 @@ namespace Jackett.Common.Indexers
 
         private new ConfigurationDataBasicLogin configData => (ConfigurationDataBasicLogin)base.configData;
 
-        public SpeedCD(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps)
+        public SpeedCD(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "speedcd",
                    name: "Speed.cd",
                    description: "Your home now!",
                    link: "https://speed.cd/",
                    caps: new TorznabCapabilities
                    {
-                       SupportsImdbMovieSearch = true
-                       // SupportsImdbTVSearch = true (supported by the site but disabled due to #8107)
+                       TvSearchParams = new List<TvSearchParam>
+                       {
+                           TvSearchParam.Q, TvSearchParam.Season, TvSearchParam.Ep, TvSearchParam.ImdbId
+                       },
+                       MovieSearchParams = new List<MovieSearchParam>
+                       {
+                           MovieSearchParam.Q, MovieSearchParam.ImdbId
+                       },
+                       MusicSearchParams = new List<MusicSearchParam>
+                       {
+                           MusicSearchParam.Q
+                       },
+                       BookSearchParams = new List<BookSearchParam>
+                       {
+                           BookSearchParam.Q
+                       }
                    },
                    configService: configService,
                    client: wc,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationDataBasicLogin(
                        @"Speed.Cd have increased their security. If you are having problems please check the security tab
                     in your Speed.Cd profile. Eg. Geo Locking, your seedbox may be in a different country to the one where you login via your
@@ -77,8 +93,8 @@ namespace Jackett.Common.Indexers
             AddCategoryMapping(39, TorznabCatType.ConsoleWii, "Games/Wii");
             AddCategoryMapping(45, TorznabCatType.ConsolePS3, "Games/PS3");
             AddCategoryMapping(35, TorznabCatType.Console, "Games/Nintendo");
-            AddCategoryMapping(33, TorznabCatType.ConsoleXbox360, "Games/XboX360");
-            AddCategoryMapping(46, TorznabCatType.PCPhoneOther, "Mobile");
+            AddCategoryMapping(33, TorznabCatType.ConsoleXBox360, "Games/XboX360");
+            AddCategoryMapping(46, TorznabCatType.PCMobileOther, "Mobile");
             AddCategoryMapping(24, TorznabCatType.PC0day, "Apps/0DAY");
             AddCategoryMapping(51, TorznabCatType.PCMac, "Mac");
             AddCategoryMapping(54, TorznabCatType.Books, "Educational");
@@ -170,7 +186,7 @@ namespace Jackett.Common.Indexers
 
                     var title = row.QuerySelector("td[class='lft'] > div > a").TextContent.Trim();
                     var link = new Uri(SiteLink + row.QuerySelector("img[title='Download']").ParentElement.GetAttribute("href").TrimStart('/'));
-                    var comments = new Uri(SiteLink + row.QuerySelector("td[class='lft'] > div > a").GetAttribute("href").TrimStart('/'));
+                    var details = new Uri(SiteLink + row.QuerySelector("td[class='lft'] > div > a").GetAttribute("href").TrimStart('/'));
                     var size = ReleaseInfo.GetBytes(cells[5].TextContent);
                     var grabs = ParseUtil.CoerceInt(cells[6].TextContent);
                     var seeders = ParseUtil.CoerceInt(cells[7].TextContent);
@@ -187,7 +203,7 @@ namespace Jackett.Common.Indexers
                         Title = title,
                         Link = link,
                         Guid = link,
-                        Comments = comments,
+                        Details = details,
                         PublishDate = publishDate,
                         Category = MapTrackerCatToNewznab(cat),
                         Size = size,

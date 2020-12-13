@@ -20,30 +20,52 @@ namespace Jackett.Common.Indexers
     [ExcludeFromCodeCoverage]
     public class TorrentHeaven : BaseWebIndexer
     {
-        public TorrentHeaven(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps) :
-            base(id: "torrentheaven",
-                 name: "TorrentHeaven",
-                 description: "A German general tracker.",
-                 link: "https://newheaven.nl/",
-                 caps: new TorznabCapabilities(),
-                 configService: configService,
-                 client: wc,
-                 logger: l,
-                 p: ps,
-                 configData: new ConfigurationDataCaptchaLogin())
+        public TorrentHeaven(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+            ICacheService cs)
+            : base(id: "torrentheaven",
+                   name: "TorrentHeaven",
+                   description: "A German general tracker.",
+                   link: "https://newheaven.nl/",
+                   caps: new TorznabCapabilities
+                   {
+                       TvSearchParams = new List<TvSearchParam>
+                       {
+                           TvSearchParam.Q, TvSearchParam.Season, TvSearchParam.Ep
+                       },
+                       MovieSearchParams = new List<MovieSearchParam>
+                       {
+                           MovieSearchParam.Q
+                       },
+                        MusicSearchParams = new List<MusicSearchParam>
+                       {
+                           MusicSearchParam.Q
+                       },
+                       BookSearchParams = new List<BookSearchParam>
+                       {
+                           BookSearchParam.Q
+                       }
+                   },
+                   configService: configService,
+                   client: wc,
+                   logger: l,
+                   p: ps,
+                   cacheService: cs,
+                   configData: new ConfigurationDataCaptchaLogin())
         {
             Encoding = Encoding.GetEncoding("iso-8859-1");
             Language = "de-de";
             Type = "private";
+
             // incomplete CA chain
             wc.AddTrustedCertificate(new Uri(SiteLink).Host, "cbf23ac75b07255ad7548a87567a839d23f31576");
+
             AddCategoryMapping(1, TorznabCatType.PCGames, "GAMES/PC");
             AddCategoryMapping(3, TorznabCatType.Console, "GAMES/Sonstige");
             AddCategoryMapping(59, TorznabCatType.ConsolePS4, "GAMES/PlayStation");
             AddCategoryMapping(60, TorznabCatType.ConsolePSP, "GAMES/PSP");
             AddCategoryMapping(63, TorznabCatType.ConsoleWii, "GAMES/Wii");
-            AddCategoryMapping(67, TorznabCatType.ConsoleXbox360, "GAMES/XBOX 360");
-            AddCategoryMapping(68, TorznabCatType.PCPhoneOther, "GAMES/PDA / Handy");
+            AddCategoryMapping(67, TorznabCatType.ConsoleXBox360, "GAMES/XBOX 360");
+            AddCategoryMapping(68, TorznabCatType.PCMobileOther, "GAMES/PDA / Handy");
             AddCategoryMapping(72, TorznabCatType.ConsoleNDS, "GAMES/NDS");
             AddCategoryMapping(7, TorznabCatType.MoviesDVD, "MOVIES/DVD");
             AddCategoryMapping(8, TorznabCatType.MoviesSD, "MOVIES/SD");
@@ -69,13 +91,14 @@ namespace Jackett.Common.Indexers
             AddCategoryMapping(52, TorznabCatType.TVDocumentary, "TV/Doku HD");
             AddCategoryMapping(53, TorznabCatType.TV, "TV/Serien Complete Packs");
             AddCategoryMapping(54, TorznabCatType.TVSport, "TV/Sport");
-            AddCategoryMapping(66, TorznabCatType.TVFOREIGN, "TV/International");
+            AddCategoryMapping(66, TorznabCatType.TVForeign, "TV/International");
+            AddCategoryMapping(110, TorznabCatType.TVUHD, "TV/Serien - 4K");
             AddCategoryMapping(22, TorznabCatType.Books, "MISC/EBooks");
             AddCategoryMapping(24, TorznabCatType.Other, "MISC/Sonstiges");
             AddCategoryMapping(25, TorznabCatType.Other, "MISC/Tonspuren");
             AddCategoryMapping(108, TorznabCatType.TVAnime, "MISC/Anime");
             AddCategoryMapping(28, TorznabCatType.PC, "APPLICATIONS/PC");
-            AddCategoryMapping(29, TorznabCatType.PCPhoneOther, "APPLICATIONS/Mobile");
+            AddCategoryMapping(29, TorznabCatType.PCMobileOther, "APPLICATIONS/Mobile");
             AddCategoryMapping(30, TorznabCatType.PC, "APPLICATIONS/Sonstige");
             AddCategoryMapping(70, TorznabCatType.PC, "APPLICATIONS/Linux");
             AddCategoryMapping(71, TorznabCatType.PCMac, "APPLICATIONS/Mac");
@@ -213,11 +236,10 @@ namespace Jackett.Common.Indexers
                     else
                         downloadFactor = 1;
                     var title = titleRegexp.Match(qDetailsLink.GetAttribute("onmouseover")).Groups[1].Value;
-                    var comments = new Uri(SiteLink + qDetailsLink.GetAttribute("href"));
-                    var size = ReleaseInfo.GetBytes(qColumn2[1].TextContent);
-                    var seeders = ParseUtil.CoerceInt(qColumn1[3].TextContent);
-                    var leechers = ParseUtil.CoerceInt(qColumn2[3].TextContent);
-                    var grabs = ParseUtil.CoerceInt(qColumn2[2].TextContent);
+                    var details = new Uri(SiteLink + qDetailsLink.GetAttribute("href"));
+                    var size = ReleaseInfo.GetBytes(qColumn1[1].TextContent);
+                    var seeders = ParseUtil.CoerceInt(qColumn2[2].TextContent);
+                    var leechers = ParseUtil.CoerceInt(qColumn1[3].TextContent);
                     var publishDate = TimeZoneInfo.ConvertTime(dateGerman, germanyTz, TimeZoneInfo.Local);
 
                     var release = new ReleaseInfo
@@ -226,14 +248,13 @@ namespace Jackett.Common.Indexers
                         MinimumSeedTime = 0,
                         Title = title,
                         Category = MapTrackerCatToNewznab(catStr),
-                        Comments = comments,
+                        Details = details,
                         Link = link,
                         Guid = link,
                         Size = size,
                         Seeders = seeders,
                         Peers = leechers + seeders,
                         PublishDate = publishDate,
-                        Grabs = grabs,
                         DownloadVolumeFactor = downloadFactor,
                         UploadVolumeFactor = 1
                     };

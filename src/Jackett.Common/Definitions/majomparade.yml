@@ -40,18 +40,19 @@ caps:
     - {id: 74, cat: Audio/Lossless, desc: "Lossless/Magyar"}
     - {id: 40, cat: Audio/Other, desc: "Zene/Külföldi"}
     - {id: 41, cat: Audio/Other, desc: "Zene/Magyar"}
-    - {id: 34, cat: PC/Phone-Other, desc: "Mobil"}
+    - {id: 34, cat: PC/Mobile-Other, desc: "Mobil"}
     - {id: 35, cat: PC/ISO, desc: "Programok/ISO"}
     - {id: 46, cat: PC/0day, desc: "Programok/RIP"}
     - {id: 70, cat: XXX/DVD, desc: "XXX/DVD"}
-    - {id: 39, cat: XXX/Xvid, desc: "XXX/XviD"}
+    - {id: 39, cat: XXX/XviD, desc: "XXX/XviD"}
     - {id: 57, cat: XXX, desc: "XXX/HD"}
 
   modes:
-    search: [q, imdbid]
+    search: [q]
     tv-search: [q, season, ep, imdbid]
     movie-search: [q, imdbid]
     music-search: [q]
+    book-search: [q]
 
 settings:
   - name: cookie
@@ -131,11 +132,9 @@ search:
       selector: a[href^="details.php?id="]
       attribute: href
     imdb:
-      optional: true
       selector: a[href*="imdb.com/title/tt"]
       attribute: href
-    banner:
-      optional: true
+    poster:
       selector: img[src="pic/borito.png"], a[href^="details.php?id="] > b[title*="Torrent neve:"]
       attribute: title
       filters:
@@ -155,7 +154,7 @@ search:
       selector: td:nth-child(6)
       filters:
         - name: append
-          args: " +01:00"
+          args: " +01:00" # CET
         - name: dateparse
           args: "2006-01-02 15:04:05 -07:00"
     downloadvolumefactor:
@@ -166,4 +165,9 @@ search:
         img[title="Ennél a torrentnél 3x szorzó van."]: 3
         img[title="Ennél a torrentnél 4x szorzó van."]: 4
         "*": 1
-# engine tbd
+    minimumratio:
+      text: 1.0
+    minimumseedtime:
+      # 2 days (as seconds = 2 x 24 x 60 x 60)
+      text: 172800
+# engine n/a

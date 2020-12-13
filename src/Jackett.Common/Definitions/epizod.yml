@@ -11,15 +11,19 @@ legacylinks:
   - https://www.epizod.tv/
 
 caps:
-  categories:
-    series: TV
-    films: Movies
-    other: Other
+  categorymappings:
+    - {id: series, cat: TV, desc: SÉRIES}
+    - {id: films, cat: Movies, desc: FILMS}
+    - {id: musique, cat: Audio, desc: MUSIQUE}
+    - {id: ebook, cat: Books, desc: EBOOK}
+    - {id: other, cat: Other, desc: OTHER}
 
   modes:
     search: [q]
     tv-search: [q, season, ep]
     movie-search: [q]
+    music-search: [q]
+    book-search: [q]
 
 settings:
   - name: multilang
@@ -31,12 +35,12 @@ settings:
     label: Replace MULTI by this language
     default: FRENCH
     options:
-      FRENCH: "FRENCH"
-      MULTI.FRENCH: "MULTI.FRENCH"
-      ENGLISH: "ENGLISH"
-      MULTI.ENGLISH: "MULTI.ENGLISH"
-      VOSTFR: "VOSTFR"
-      MULTI.VOSTFR: "MULTI.VOSTFR"
+      FRENCH: FRENCH
+      MULTI.FRENCH: MULTI.FRENCH
+      ENGLISH: ENGLISH
+      MULTI.ENGLISH: MULTI.ENGLISH
+      VOSTFR: VOSTFR
+      MULTI.VOSTFR: MULTI.VOSTFR
   - name: vostfr
     type: checkbox
     label: Replace VOSTFR with ENGLISH
@@ -113,7 +117,7 @@ search:
     download:
       selector: div.post-cover > a
       attribute: href
-    banner:
+    poster:
       selector: img[data-lazy-src]
       attribute: data-lazy-src
     date:
@@ -125,16 +129,16 @@ search:
         - name: dateparse
           args: "2006-01-02 15:04:05-07:00"
     cat:
-      text: other
-    cat:
       selector: a[href*="/category/"]
       attribute: href
       optional: true
       filters:
         - name: split
           args: ["/", 4]
+    cat:
+      text: "{{ if .Result.cat }}{{ .Result.cat }}{{ else }}other{{ end }}"
     size:
-      text: "{{ if eq .Result.cat \"series\" }}512 MB{{else}}2 GB{{end}}"
+      text: "{{ if eq .Result.cat \"ebook\" }}1 MB{{ else }}{{ end }}{{ if eq .Result.cat \"musique\" }}128 MB{{ else }}{{ end }}{{ if or (eq .Result.cat \"series\") (eq .Result.cat \"other\") }}512 MB{{ else }}{{ end }}{{ if eq .Result.cat \"films\" }}2 GB{{ else }}{{ end }}"
     seeders:
       text: 1
     leechers:
@@ -143,4 +147,4 @@ search:
       text: 0
     uploadvolumefactor:
       text: 1
-# engine n/a
+# engine wordpress

@@ -28,16 +28,36 @@ namespace Jackett.Common.Indexers
             set => base.configData = value;
         }
 
-        public Partis(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps)
+        public Partis(IIndexerConfigurationService configService, WebClient wc, Logger l, IProtectionService ps,
+            ICacheService cs)
             : base(id: "partis",
                    name: "Partis",
                    description: "Partis is a SLOVENIAN Private Torrent Tracker",
                    link: "https://www.partis.si/",
-                   caps: TorznabUtil.CreateDefaultTorznabTVCaps(),
+                   caps: new TorznabCapabilities
+                   {
+                       TvSearchParams = new List<TvSearchParam>
+                       {
+                           TvSearchParam.Q, TvSearchParam.Season, TvSearchParam.Ep
+                       },
+                       MovieSearchParams = new List<MovieSearchParam>
+                       {
+                           MovieSearchParam.Q
+                       },
+                       MusicSearchParams = new List<MusicSearchParam>
+                       {
+                           MusicSearchParam.Q
+                       },
+                       BookSearchParams = new List<BookSearchParam>
+                       {
+                           BookSearchParam.Q
+                       }
+                   },
                    configService: configService,
                    client: wc,
                    logger: l,
                    p: ps,
+                   cacheService: cs,
                    configData: new ConfigurationDataBasicLogin())
         {
             Encoding = Encoding.UTF8;
@@ -87,7 +107,7 @@ namespace Jackett.Common.Indexers
             AddCategoryMapping(8, TorznabCatType.AudioVideo, "Music DVD");
             AddCategoryMapping(8, TorznabCatType.AudioVideo, "Videospoti");
             AddCategoryMapping(21, TorznabCatType.AudioAudiobook, "AudioBook");
-            AddCategoryMapping(3, TorznabCatType.BooksEbook, "eKnjige");
+            AddCategoryMapping(3, TorznabCatType.BooksEBook, "eKnjige");
         }
 
         public override async Task<IndexerConfigurationStatus> ApplyConfiguration(JToken configJson)
@@ -181,8 +201,8 @@ namespace Jackett.Common.Indexers
 
                         // Title and torrent link
                         release.Title = qDetailsLink.TextContent;
-                        release.Comments = new Uri(SiteLink + qDetailsLink.GetAttribute("href").TrimStart('/'));
-                        release.Guid = release.Comments;
+                        release.Details = new Uri(SiteLink + qDetailsLink.GetAttribute("href").TrimStart('/'));
+                        release.Guid = release.Details;
 
                         // Date of torrent creation
                         var liopis = Row.QuerySelector("div.listeklink div span.middle");

@@ -49,6 +49,7 @@ caps:
     tv-search: [q, season, ep]
     movie-search: [q]
     music-search: [q]
+    book-search: [q]
 
 settings:
   - name: username
@@ -68,19 +69,19 @@ settings:
   - name: sort
     type: select
     label: Sort requested from site
-    default: "4"
+    default: 4
     options:
-      "4": "created"
-      "7": "seeders"
-      "5": "size"
-      "1": "title"
+      4: created
+      7: seeders
+      5: size
+      1: title
   - name: type
     type: select
     label: Order requested from site
-    default: "desc"
+    default: desc
     options:
-      "desc": "desc"
-      "asc": "asc"
+      desc: desc
+      asc: asc
 
 login:
   path: login.php
@@ -98,13 +99,6 @@ login:
   test:
     path: browse.php
     selector: a[href$="/logout.php"]
-
-ratio:
-  path: browse.php
-  selector: div div font:contains("Ratio:")
-  filters:
-    - name: regexp
-      args: "Ratio:\\s(.*?)\\s\\s"
 
 search:
   paths:
@@ -151,13 +145,17 @@ search:
           args: ["Danas", "Today"]
         - name: replace
           args: ["Juče", "Yesterday"]
+        - name: append
+          args: " +00:00" # auto adjusted by site account profile
     date:
       # Feb 14 2019<br>10:20 AM
       optional: true
       selector: td:nth-of-type(6):not(:contains("Juče")):not(:contains("Danas"))
       filters:
+        - name: append
+          args: " +00:00" # auto adjusted by site account profile
         - name: dateparse
-          args: "Jan 2 2006 03:04 PM"
+          args: "Jan 2 2006 03:04 PM -07:00"
     size:
       selector: td:nth-of-type(7)
     grabs:

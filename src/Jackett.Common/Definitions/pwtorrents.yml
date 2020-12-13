@@ -53,19 +53,19 @@ settings:
   - name: sort
     type: select
     label: Sort requested from site
-    default: "4"
+    default: 4
     options:
-      "4": "created"
-      "7": "seeders"
-      "5": "size"
-      "1": "title"
+      4: created
+      7: seeders
+      5: size
+      1: title
   - name: type
     type: select
     label: Order requested from site
-    default: "desc"
+    default: desc
     options:
-      "desc": "desc"
-      "asc": "asc"
+      desc: desc
+      asc: asc
 
 login:
   path: takelogin.php
@@ -78,13 +78,6 @@ login:
   test:
     path: my.php
     selector: a[href="logout.php"]
-
-ratio:
-  path: browse.php
-  selector: span.smallfont:has(a[href="logout.php"])
-  filters:
-    - name: regexp
-      args: "Ratio:\\s(.*?)\\s\\s"
 
 search:
   paths:
@@ -124,8 +117,10 @@ search:
     date:
       selector: td:nth-child(4)
       filters:
+        - name: append
+          args: " +00:00" # GMT
         - name: dateparse
-          args: "2006-01-0215:04:05"
+          args: "2006-01-0215:04:05 -07:00"
     size:
       selector: td:nth-child(5)
     grabs:

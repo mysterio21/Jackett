@@ -25,10 +25,11 @@ caps:
     - {id: 412, cat: Other, desc: "其它 (Other)"}
 
   modes:
-    search: [q, imdbid]
+    search: [q]
     tv-search: [q, season, ep, imdbid]
     movie-search: [q, imdbid]
     music-search: [q]
+    book-search: [q]
 
 settings:
   - name: username
@@ -51,19 +52,19 @@ settings:
   - name: sort
     type: select
     label: Sort requested from site
-    default: "4"
+    default: 4
     options:
-      "4": "created"
-      "7": "seeders"
-      "5": "size"
-      "1": "title"
+      4: created
+      7: seeders
+      5: size
+      1: title
   - name: type
     type: select
     label: Order requested from site
-    default: "desc"
+    default: desc
     options:
-      "desc": "desc"
-      "asc": "asc"
+      desc: desc
+      asc: asc
   - name: info_tpp
     type: info
     label: Results Per Page
@@ -130,12 +131,10 @@ search:
     download:
       selector: a[href^="download.php?id="]
       attribute: href
-    banner:
+    poster:
       selector: img[data-orig]
       attribute: data-orig
-      optional: true
     imdb:
-      optional: true
       selector: a[href*="imdb.com/title/tt"]
       attribute: href
     date:
@@ -145,7 +144,7 @@ search:
       optional: true
       filters:
         - name: append
-          args: " +08:00"
+          args: " +08:00" # CST
         - name: dateparse
           args: "2006-01-02 15:04:05 -07:00"
     date:
@@ -154,7 +153,7 @@ search:
       optional: true
       filters:
         - name: append
-          args: " +08:00"
+          args: " +08:00" # CST
         - name: dateparse
           args: "2006-01-0215:04:05 -07:00"
     size:
@@ -182,4 +181,6 @@ search:
     description:
       selector: td:nth-child(2)
       remove: a, img
+    minimumratio:
+      text: 0.9
 # NexusPHP custom v2019.12

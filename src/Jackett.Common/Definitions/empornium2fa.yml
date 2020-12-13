@@ -89,7 +89,7 @@ search:
   paths:
     - path: torrents.php
   inputs:
-    $raw: "{{range .Categories}}filter_cat[{{.}}]=1&{{end}}"
+    $raw: "{{ range .Categories }}filter_cat[{{.}}]=1&{{end}}"
     searchtext: ""
     title: "{{ .Keywords }}"
     order_by: time
@@ -120,8 +120,7 @@ search:
     details:
       selector: a[href^="/torrents.php?id="]
       attribute: href
-    banner:
-      optional: true
+    poster:
       selector: td:nth-child(2) > script
       filters:
         - name: regexp
@@ -137,7 +136,7 @@ search:
       attribute: title
       filters:
         - name: append
-          args: " +00:00"
+          args: " +00:00" # auto adjusted by site account profile
         - name: dateparse
           args: "Jan 02 2006, 15:04 -07:00"
     size:
@@ -155,4 +154,6 @@ search:
         "*": 1
     uploadvolumefactor:
       text: 1
+    minimumratio:
+      text: 0.5
 # Luminance
